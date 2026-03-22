@@ -1,189 +1,73 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dorothy & Kenneth's Photo Booth</title>
-    <style>
-        body { font-family: 'Georgia', serif; background: #fdf6f0; text-align: center; color: #5d4037; margin: 0; padding: 20px; }
-        .container { max-width: 800px; margin: auto; }
-        
-        /* Booth Window */
-        #booth-wrapper { 
-            position: relative; border: 12px solid #fff; border-radius: 10px; 
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1); background: #000; overflow: hidden;
-        }
-        video, #preview-img { width: 100%; display: block; transform: scaleX(-1); }
-        #preview-img { display: none; transform: none; } /* Preview is already un-mirrored */
-        
-        #frame-preview { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; }
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
-        /* UI Elements */
-        .controls { margin-top: 20px; display: flex; justify-content: center; gap: 15px; }
-        button { 
-            background: #d4a373; color: white; border: none; padding: 15px 30px; 
-            font-size: 1.1rem; border-radius: 50px; cursor: pointer; transition: 0.3s;
-        }
-        button:disabled { background: #ccc; }
-        .btn-save { background: #6b8e23; } /* Green for save */
-        .btn-retake { background: #bc4b51; } /* Red for retake */
+<style>
+    /* New Button Style */
+    .btn-switch { background: #5d4037; margin-bottom: 10px; }
+    #qr-code-container { 
+        position: absolute; bottom: 20px; right: 20px; 
+        background: white; padding: 10px; border-radius: 5px; display: none; 
+    }
+</style>
 
-        #countdown { 
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); 
-            font-size: 8rem; color: white; z-index: 10; text-shadow: 0 0 20px rgba(0,0,0,0.8); display: none; 
-        }
-
-        /* Gallery Style */
-        .gallery { margin-top: 40px; border-top: 2px solid #eaddcf; padding-top: 20px; }
-        .gallery-title { font-style: italic; margin-bottom: 10px; }
-        .gallery-items { display: flex; justify-content: center; gap: 10px; height: 120px; }
-        .gallery-items img { height: 100%; border: 4px solid white; border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-    </style>
-</head>
-<body>
-
-<div class="container">
-    <h1>Dorothy & Kenneth</h1>
-    <p>November 1, 2026 — Capture the Moment ✨</p>
-
-    <div id="booth-wrapper">
-        <video id="video" autoplay playsinline muted></video>
-        <img id="preview-img">
-        <img src="frame.png" id="frame-preview">
-        <div id="countdown">3</div>
-    </div>
-
-    <div class="controls" id="main-controls">
-        <button id="snap-btn">📸 Take Photo</button>
-    </div>
-
-    <div class="controls" id="review-controls" style="display:none;">
-        <button class="btn-retake" id="retake-btn">🔄 Retake</button>
-        <button class="btn-save" id="save-btn">💾 Keep & Save</button>
-    </div>
-
-    <div class="gallery">
-        <div class="gallery-title">Recent Photos</div>
-        <div class="gallery-items" id="gallery-items"></div>
-    </div>
-
-    <canvas id="canvas" style="display:none;"></canvas>
-    <img src="frame.png" id="frame-source" style="display:none;">
+<div class="controls">
+    <button class="btn-switch" id="switch-btn">🔄 Switch Camera</button>
 </div>
 
+<div id="booth-wrapper">
+    <video id="video" autoplay playsinline muted></video>
+    <div id="qr-code-container">
+        <div id="qrcode"></div>
+        <p style="font-size: 10px; color: black; margin: 5px 0 0 0;">Scan to view Gallery</p>
+    </div>
+    </div>
+
 <script>
-    const video = document.getElementById('video');
-    const canvas = document.getElementById('canvas');
-    const previewImg = document.getElementById('preview-img');
-    const snapBtn = document.getElementById('snap-btn');
-    const saveBtn = document.getElementById('save-btn');
-    const retakeBtn = document.getElementById('retake-btn');
-    const countdownEl = document.getElementById('countdown');
-    const frameImg = document.getElementById('frame-source');
-    const galleryContainer = document.getElementById('gallery-items');
-    
-    let lastCaptureData = null;
-    let savedPhotos = [];
+    let currentStream;
+    let useFrontCamera = true;
+    const switchBtn = document.getElementById('switch-btn');
 
-    // Audio Context for Sounds
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    function playSound(freq, type, duration) {
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.type = type;
-        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
-        osc.start();
-        osc.stop(audioCtx.currentTime + duration);
-    }
+    // Updated Camera Function to handle toggling
+    async function startCamera() {
+        if (currentStream) {
+            currentStream.getTracks().forEach(track => track.stop());
+        }
 
-    // Start Camera
-    navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 }, audio: false })
-        .then(stream => { video.srcObject = stream; })
-        .catch(err => alert("Camera blocked! Use HTTPS."));
-
-    // Snap Logic
-    snapBtn.addEventListener('click', () => {
-        let count = 3;
-        snapBtn.disabled = true;
-        countdownEl.style.display = 'block';
-        
-        const timer = setInterval(() => {
-            if (count > 0) {
-                countdownEl.innerText = count;
-                playSound(440, 'sine', 0.1); // "Beep"
-                count--;
-            } else {
-                clearInterval(timer);
-                countdownEl.style.display = 'none';
-                playSound(880, 'square', 0.2); // "Click/Shutter"
-                processPhoto();
+        const constraints = {
+            video: { 
+                facingMode: useFrontCamera ? "user" : "environment",
+                width: { ideal: 1280 },
+                height: { ideal: 720 }
             }
-        }, 1000);
-    });
+        };
 
-    function processPhoto() {
-        const context = canvas.getContext('2d');
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        
-        // Un-mirror and draw
-        context.save();
-        context.translate(canvas.width, 0);
-        context.scale(-1, 1);
-        context.drawImage(video, 0, 0, canvas.width, canvas.height);
-        context.restore();
-        
-        // Add Frame
-        context.drawImage(frameImg, 0, 0, canvas.width, canvas.height);
-        
-        lastCaptureData = canvas.toDataURL("image/png");
-        
-        // Show Review UI
-        previewImg.src = lastCaptureData;
-        previewImg.style.display = 'block';
-        video.style.display = 'none';
-        document.getElementById('main-controls').style.display = 'none';
-        document.getElementById('review-controls').style.display = 'flex';
+        try {
+            currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+            video.srcObject = currentStream;
+            
+            // Mirror ONLY if using front camera
+            video.style.transform = useFrontCamera ? "scaleX(-1)" : "scaleX(1)";
+            
+            statusLog.innerText = "Camera Active!";
+        } catch (err) {
+            console.error(err);
+            statusLog.innerText = "Switch failed. Some browsers block rapid switching.";
+        }
     }
 
-    saveBtn.addEventListener('click', () => {
-        // 1. Download
-        const link = document.createElement('a');
-        link.download = `Wedding_${Date.now()}.png`;
-        link.href = lastCaptureData;
-        link.click();
-
-        // 2. Add to Gallery
-        savedPhotos.unshift(lastCaptureData);
-        if (savedPhotos.length > 3) savedPhotos.pop();
-        updateGallery();
-
-        resetBooth();
+    switchBtn.addEventListener('click', () => {
+        useFrontCamera = !useFrontCamera;
+        startCamera();
     });
 
-    retakeBtn.addEventListener('click', resetBooth);
-
-    function resetBooth() {
-        previewImg.style.display = 'none';
-        video.style.display = 'block';
-        document.getElementById('main-controls').style.display = 'flex';
-        document.getElementById('review-controls').style.display = 'none';
-        snapBtn.disabled = false;
-        countdownEl.innerText = "3";
-    }
-
-    function updateGallery() {
-        galleryContainer.innerHTML = '';
-        savedPhotos.forEach(src => {
-            const img = document.createElement('img');
-            img.src = src;
-            galleryContainer.appendChild(img);
+    // To show a QR code on the "Save" screen:
+    function showQRCode(url) {
+        const qrDiv = document.getElementById("qrcode");
+        qrDiv.innerHTML = ""; // Clear old one
+        new QRCode(qrDiv, {
+            text: url,
+            width: 80,
+            height: 80
         });
+        document.getElementById("qr-code-container").style.display = "block";
     }
 </script>
-
-</body>
-</html>
