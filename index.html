@@ -1,73 +1,133 @@
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Dorothy & Kenneth's Photo Booth</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+        body { font-family: 'Georgia', serif; background: #fdf6f0; text-align: center; color: #5d4037; margin: 0; padding: 10px; }
+        .container { max-width: 600px; margin: auto; }
+        h1 { font-size: 1.8rem; color: #8d6e63; margin: 10px 0; }
+        
+        /* Booth Window */
+        #booth-wrapper { 
+            position: relative; border: 8px solid #fff; border-radius: 10px; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1); background: #000; overflow: hidden; line-height: 0;
+        }
+        video, #preview-img { width: 100%; height: auto; display: block; }
+        #preview-img { display: none; }
+        #frame-preview { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; }
 
-<style>
-    /* New Button Style */
-    .btn-switch { background: #5d4037; margin-bottom: 10px; }
-    #qr-code-container { 
-        position: absolute; bottom: 20px; right: 20px; 
-        background: white; padding: 10px; border-radius: 5px; display: none; 
-    }
-</style>
+        /* QR Code Overlay */
+        #qr-overlay {
+            position: absolute; bottom: 15px; right: 15px; 
+            background: white; padding: 8px; border-radius: 5px; 
+            display: none; z-index: 10; box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
 
-<div class="controls">
+        /* Buttons */
+        .controls { margin-top: 15px; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+        button { 
+            background: #d4a373; color: white; border: none; padding: 12px 24px; 
+            font-size: 1rem; border-radius: 50px; cursor: pointer; transition: 0.3s;
+        }
+        .btn-switch { background: #5d4037; font-size: 0.8rem; }
+        .btn-save { background: #6b8e23; }
+        .btn-retake { background: #bc4b51; }
+        button:disabled { background: #ccc; }
+
+        #countdown { 
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); 
+            font-size: 6rem; color: white; z-index: 20; text-shadow: 0 0 20px rgba(0,0,0,0.8); display: none; 
+        }
+
+        /* Gallery */
+        .gallery { margin-top: 30px; border-top: 1px solid #eaddcf; padding-top: 15px; }
+        .gallery-items { display: flex; justify-content: center; gap: 8px; height: 90px; margin-top: 10px; }
+        .gallery-items img { height: 100%; border: 2px solid white; border-radius: 4px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Dorothy & Kenneth</h1>
+    <p>November 1, 2026 — Capture the Moment ✨</p>
+
     <button class="btn-switch" id="switch-btn">🔄 Switch Camera</button>
+
+    <div id="booth-wrapper">
+        <video id="video" autoplay playsinline muted></video>
+        <img id="preview-img">
+        <img src="frame.png" id="frame-preview">
+        
+        <div id="qr-overlay">
+            <div id="qrcode"></div>
+            <p style="margin: 5px 0 0 0; font-size: 8px; color: #000;">Scan Gallery</p>
+        </div>
+
+        <div id="countdown">3</div>
+    </div>
+
+    <div class="controls" id="main-controls">
+        <button id="snap-btn">📸 Take Photo</button>
+    </div>
+
+    <div class="controls" id="review-controls" style="display:none;">
+        <button class="btn-retake" id="retake-btn">🔄 Retake</button>
+        <button class="btn-save" id="save-btn">💾 Keep & Save</button>
+    </div>
+
+    <div class="gallery">
+        <div class="gallery-items" id="gallery-items"></div>
+    </div>
+
+    <canvas id="canvas" style="display:none;"></canvas>
+    <img src="frame.png" id="frame-source" style="display:none;">
 </div>
 
-<div id="booth-wrapper">
-    <video id="video" autoplay playsinline muted></video>
-    <div id="qr-code-container">
-        <div id="qrcode"></div>
-        <p style="font-size: 10px; color: black; margin: 5px 0 0 0;">Scan to view Gallery</p>
-    </div>
-    </div>
-
 <script>
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const previewImg = document.getElementById('preview-img');
+    const snapBtn = document.getElementById('snap-btn');
+    const saveBtn = document.getElementById('save-btn');
+    const retakeBtn = document.getElementById('retake-btn');
+    const switchBtn = document.getElementById('switch-btn');
+    const countdownEl = document.getElementById('countdown');
+    const frameImg = document.getElementById('frame-source');
+    const galleryContainer = document.getElementById('gallery-items');
+    const qrOverlay = document.getElementById('qr-overlay');
+
     let currentStream;
     let useFrontCamera = true;
-    const switchBtn = document.getElementById('switch-btn');
+    let lastCaptureData = null;
+    let savedPhotos = [];
 
-    // Updated Camera Function to handle toggling
+    // Audio Context for Built-in Sounds
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    function playSound(freq, type, duration) {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+    }
+
+    // Camera Management
     async function startCamera() {
         if (currentStream) {
             currentStream.getTracks().forEach(track => track.stop());
         }
-
         const constraints = {
-            video: { 
-                facingMode: useFrontCamera ? "user" : "environment",
-                width: { ideal: 1280 },
-                height: { ideal: 720 }
-            }
+            video: { facingMode: useFrontCamera ? "user" : "environment" },
+            audio: false
         };
-
         try {
             currentStream = await navigator.mediaDevices.getUserMedia(constraints);
             video.srcObject = currentStream;
-            
-            // Mirror ONLY if using front camera
-            video.style.transform = useFrontCamera ? "scaleX(-1)" : "scaleX(1)";
-            
-            statusLog.innerText = "Camera Active!";
-        } catch (err) {
-            console.error(err);
-            statusLog.innerText = "Switch failed. Some browsers block rapid switching.";
-        }
-    }
-
-    switchBtn.addEventListener('click', () => {
-        useFrontCamera = !useFrontCamera;
-        startCamera();
-    });
-
-    // To show a QR code on the "Save" screen:
-    function showQRCode(url) {
-        const qrDiv = document.getElementById("qrcode");
-        qrDiv.innerHTML = ""; // Clear old one
-        new QRCode(qrDiv, {
-            text: url,
-            width: 80,
-            height: 80
-        });
-        document.getElementById("qr-code-container").style.display = "block";
-    }
-</script>
+            video.style.transform = useFrontCamera ? "
