@@ -34,6 +34,15 @@
         .gallery { margin-top: 30px; border-top: 2px solid #eaddcf; padding-top: 15px; }
         .gallery-items { display: flex; justify-content: center; gap: 10px; height: 100px; margin-top: 10px; }
         .gallery-items img { height: 100%; border: 3px solid white; border-radius: 5px; }
+
+        /* --- PRINT SETTINGS --- */
+        @media print {
+            body { background: white !important; padding: 0 !important; margin: 0 !important; }
+            .container > *:not(#booth-wrapper) { display: none !important; } /* Hide everything except the booth box */
+            #booth-wrapper { border: none !important; box-shadow: none !important; width: 100vw !important; height: auto !important; }
+            #frame-preview { display: block !important; }
+            #preview-img { display: block !important; width: 100% !important; }
+        }
     </style>
 </head>
 <body>
@@ -42,7 +51,7 @@
     <h1>Dorothy & Kenneth</h1>
     <p>November 1, 2026 — Capture the Moment ✨</p>    
 
-    <button id="switch-btn">🔄 Switch Camera (Front/Back)</button>
+    <button id="switch-btn">🔄 Switch Camera (Select A7C2 via Webcam Utility/Front/Back)</button>
 
     <div id="booth-wrapper">
         <video id="video" autoplay playsinline muted></video>
@@ -57,7 +66,7 @@
 
     <div class="controls" id="review-controls" style="display:none;">
         <button class="btn-retake" id="retake-btn">🔄 Retake</button>
-        <button class="btn-save" id="save-btn">💾 Keep & Save</button>
+        <button class="btn-save" id="save-btn">💾 Save & Print</button>
     </div>
 
     <div class="gallery">
@@ -112,7 +121,7 @@
             video.srcObject = currentStream;
             video.style.transform = useFrontCamera ? "scaleX(-1)" : "scaleX(1)";
         } catch (e) {
-            alert("Camera Error. Please use HTTPS.");
+            alert("Camera Access Error. If using Sony A7C2, ensure Imaging Edge Webcam is active.");
         }
     }
 
@@ -129,13 +138,13 @@
         
         const timer = setInterval(() => {
             if (count > 1) {
-                playSound(440, 0.1); // Beep
+                playSound(440, 0.1); 
                 count--;
                 countdownEl.innerText = count;
             } else {
                 clearInterval(timer);
                 countdownEl.style.display = 'none';
-                playSound(880, 0.2); // Shutter
+                playSound(880, 0.2); 
                 capture();
             }
         }, 1000);
@@ -165,14 +174,20 @@
     }
 
     saveBtn.addEventListener('click', () => {
+        // 1. Digital Backup
         const link = document.createElement('a');
-        link.download = `Wedding_${Date.now()}.png`;
+        link.download = `Dorothy_Kenneth_${Date.now()}.png`;
         link.href = lastCaptureData;
         link.click();
 
+        // 2. Add to Gallery
         savedPhotos.unshift(lastCaptureData);
         if (savedPhotos.length > 3) savedPhotos.pop();
         updateGallery();
+
+        // 3. Open Printer Dialog
+        window.print();
+
         reset();
     });
 
