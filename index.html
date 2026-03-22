@@ -4,68 +4,50 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Dorothy & Kenneth's Photo Booth</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
         body { font-family: 'Georgia', serif; background: #fdf6f0; text-align: center; color: #5d4037; margin: 0; padding: 10px; }
         .container { max-width: 600px; margin: auto; }
-        h1 { font-size: 1.8rem; color: #8d6e63; margin: 10px 0; }
         
-        /* Booth Window */
         #booth-wrapper { 
-            position: relative; border: 8px solid #fff; border-radius: 10px; 
+            position: relative; border: 10px solid #fff; border-radius: 10px; 
             box-shadow: 0 10px 30px rgba(0,0,0,0.1); background: #000; overflow: hidden; line-height: 0;
         }
         video, #preview-img { width: 100%; height: auto; display: block; }
         #preview-img { display: none; }
         #frame-preview { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; }
 
-        /* QR Code Overlay */
-        #qr-overlay {
-            position: absolute; bottom: 15px; right: 15px; 
-            background: white; padding: 8px; border-radius: 5px; 
-            display: none; z-index: 10; box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-        }
-
-        /* Buttons */
-        .controls { margin-top: 15px; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+        .controls { margin-top: 15px; display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
         button { 
-            background: #d4a373; color: white; border: none; padding: 12px 24px; 
-            font-size: 1rem; border-radius: 50px; cursor: pointer; transition: 0.3s;
+            background: #d4a373; color: white; border: none; padding: 15px 30px; 
+            font-size: 1.1rem; border-radius: 50px; cursor: pointer;
         }
-        .btn-switch { background: #5d4037; font-size: 0.8rem; }
+        #switch-btn { background: #5d4037; font-size: 0.9rem; padding: 10px 20px; margin-bottom: 10px; }
         .btn-save { background: #6b8e23; }
         .btn-retake { background: #bc4b51; }
         button:disabled { background: #ccc; }
 
         #countdown { 
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); 
-            font-size: 6rem; color: white; z-index: 20; text-shadow: 0 0 20px rgba(0,0,0,0.8); display: none; 
+            font-size: 8rem; color: white; z-index: 10; text-shadow: 0 0 20px rgba(0,0,0,0.8); display: none; 
         }
 
-        /* Gallery */
-        .gallery { margin-top: 30px; border-top: 1px solid #eaddcf; padding-top: 15px; }
-        .gallery-items { display: flex; justify-content: center; gap: 8px; height: 90px; margin-top: 10px; }
-        .gallery-items img { height: 100%; border: 2px solid white; border-radius: 4px; }
+        .gallery { margin-top: 30px; border-top: 2px solid #eaddcf; padding-top: 15px; }
+        .gallery-items { display: flex; justify-content: center; gap: 10px; height: 100px; margin-top: 10px; }
+        .gallery-items img { height: 100%; border: 3px solid white; border-radius: 5px; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <h1>Dorothy & Kenneth</h1>
-    <p>November 1, 2026 — Capture the Moment ✨</p>
+    <p>November 1, 2026 — Capture the Moment ✨</p>    
 
-    <button class="btn-switch" id="switch-btn">🔄 Switch Camera</button>
+    <button id="switch-btn">🔄 Switch Camera (Front/Back)</button>
 
     <div id="booth-wrapper">
         <video id="video" autoplay playsinline muted></video>
         <img id="preview-img">
         <img src="frame.png" id="frame-preview">
-        
-        <div id="qr-overlay">
-            <div id="qrcode"></div>
-            <p style="margin: 5px 0 0 0; font-size: 8px; color: #000;">Scan Gallery</p>
-        </div>
-
         <div id="countdown">3</div>
     </div>
 
@@ -97,37 +79,122 @@
     const countdownEl = document.getElementById('countdown');
     const frameImg = document.getElementById('frame-source');
     const galleryContainer = document.getElementById('gallery-items');
-    const qrOverlay = document.getElementById('qr-overlay');
-
+    
     let currentStream;
     let useFrontCamera = true;
     let lastCaptureData = null;
     let savedPhotos = [];
 
-    // Audio Context for Built-in Sounds
+    // Audio - Built-in (No files needed)
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    function playSound(freq, type, duration) {
+    function playSound(freq, duration) {
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
-        osc.type = type;
-        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-        gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+        osc.frequency.value = freq;
+        gain.gain.value = 0.1;
         osc.connect(gain);
         gain.connect(audioCtx.destination);
         osc.start();
         osc.stop(audioCtx.currentTime + duration);
     }
 
-    // Camera Management
-    async function startCamera() {
+    // Start Camera
+    async function initCamera() {
         if (currentStream) {
             currentStream.getTracks().forEach(track => track.stop());
         }
-        const constraints = {
-            video: { facingMode: useFrontCamera ? "user" : "environment" },
-            audio: false
+        const constraints = { 
+            video: { facingMode: useFrontCamera ? "user" : "environment" } 
         };
         try {
             currentStream = await navigator.mediaDevices.getUserMedia(constraints);
             video.srcObject = currentStream;
-            video.style.transform = useFrontCamera ? "
+            video.style.transform = useFrontCamera ? "scaleX(-1)" : "scaleX(1)";
+        } catch (e) {
+            alert("Camera Error. Please use HTTPS.");
+        }
+    }
+
+    switchBtn.addEventListener('click', () => {
+        useFrontCamera = !useFrontCamera;
+        initCamera();
+    });
+
+    snapBtn.addEventListener('click', () => {
+        let count = 3;
+        snapBtn.disabled = true;
+        countdownEl.style.display = 'block';
+        countdownEl.innerText = count;
+        
+        const timer = setInterval(() => {
+            if (count > 1) {
+                playSound(440, 0.1); // Beep
+                count--;
+                countdownEl.innerText = count;
+            } else {
+                clearInterval(timer);
+                countdownEl.style.display = 'none';
+                playSound(880, 0.2); // Shutter
+                capture();
+            }
+        }, 1000);
+    });
+
+    function capture() {
+        const ctx = canvas.getContext('2d');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        
+        ctx.save();
+        if (useFrontCamera) {
+            ctx.translate(canvas.width, 0);
+            ctx.scale(-1, 1);
+        }
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        ctx.restore();
+        
+        if (frameImg.complete) ctx.drawImage(frameImg, 0, 0, canvas.width, canvas.height);
+        
+        lastCaptureData = canvas.toDataURL("image/png");
+        previewImg.src = lastCaptureData;
+        previewImg.style.display = 'block';
+        video.style.display = 'none';
+        document.getElementById('main-controls').style.display = 'none';
+        document.getElementById('review-controls').style.display = 'flex';
+    }
+
+    saveBtn.addEventListener('click', () => {
+        const link = document.createElement('a');
+        link.download = `Wedding_${Date.now()}.png`;
+        link.href = lastCaptureData;
+        link.click();
+
+        savedPhotos.unshift(lastCaptureData);
+        if (savedPhotos.length > 3) savedPhotos.pop();
+        updateGallery();
+        reset();
+    });
+
+    retakeBtn.addEventListener('click', reset);
+
+    function reset() {
+        previewImg.style.display = 'none';
+        video.style.display = 'block';
+        document.getElementById('main-controls').style.display = 'flex';
+        document.getElementById('review-controls').style.display = 'none';
+        snapBtn.disabled = false;
+    }
+
+    function updateGallery() {
+        galleryContainer.innerHTML = '';
+        savedPhotos.forEach(src => {
+            const img = document.createElement('img');
+            img.src = src;
+            galleryContainer.appendChild(img);
+        });
+    }
+
+    initCamera();
+</script>
+</body>
+</html>
