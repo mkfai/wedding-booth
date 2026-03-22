@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dorothy & Kenneth's Photo Booth</title>
+    <style>
+        body { 
+            font-family: 'Georgia', serif; 
+            background: #fdf6f0; 
+            text-align: center; 
+            color: #5d4037; 
+            margin: 0; padding: 20px;
+        }
+        .container { max-width: 900px; margin: auto; }
+        h1 { font-size: 2.5rem; color: #8d6e63; margin-bottom: 5px; }
+        
+        /* The Booth Display */
+        #booth-wrapper { 
+            position: relative; 
+            display: inline-block; 
+            border: 15px solid #fff; 
+            border-radius: 10px; 
+            box-shadow: 0 15px 50px rgba(0,0,0,0.15);
+            background: #000;
+            line-height: 0; /* Removes weird gaps */
+        }
+
+        /* Mirrored Video for Guest Preview */
+        video { 
+            width: 100%; 
+            max-width: 800px; 
+            transform: scaleX(-1); 
+        }
+
+        /* The Frame Overlay (Live Preview) */
+        #frame-preview {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        /* Gold Wedding Button */
+        .controls { margin-top: 30px; }
+        #snap { 
+            background: linear-gradient(145deg, #d4a373, #b08968);
+            color: white; border: 2px solid #fff;
+            padding: 18px 45px; font-size: 1.5rem; font-weight: bold;
+            cursor: pointer; border-radius: 50px; 
+            box-shadow: 0 5px 15px rgba(188, 138, 95, 0.4);
+            transition: 0.3s; text-transform: uppercase;
+        }
+        #snap:disabled { background: #ccc; cursor: not-allowed; }
+
+        /* Countdown */
+        #countdown { 
+            position: absolute; top: 50%; left: 50%; 
+            transform: translate(-50%, -50%); 
+            font-size: 10rem; color: #fff; 
+            text-shadow: 0 0 20px rgba(0,0,0,0.8); 
+            display: none; z-index: 20;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Dorothy & Kenneth</h1>
+    <p>November 1, 2026 — Capture the Moment ✨</p>
+
+    <div id="booth-wrapper">
+        <video id="video" autoplay playsinline></video>
+        <img src="frame.png" id="frame-preview">
+        <div id="countdown">3</div>
+    </div>
+
+    <div class="controls">
+        <button id="snap">Loading Camera...</button>
+    </div>
+
+    <canvas id="canvas" style="display:none;"></canvas>
+    <img src="frame.png" id="frame-source" style="display:none;">
+</div>
+
+<script>
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const snapBtn = document.getElementById('snap');
+    const countdownEl = document.getElementById('countdown');
+    const frameImg = document.getElementById('frame-source');
+
+    // 1. Initialize Camera
+    async function initCamera() {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ 
+                video: { width: 1280, height: 720 }, 
+                audio: false 
+            });
+            video.srcObject = stream;
+            snapBtn.innerText = "📸 Take Photo";
+            snapBtn.disabled = false;
+        } catch (err) {
+            console.error("Camera Error:", err);
+            snapBtn.innerText = "Camera Blocked";
+            alert("Error: Camera access is blocked. You MUST run this via a local server (http://localhost) or HTTPS.");
+        }
+    }
+
+    // 2. Countdown Logic
+    snapBtn.addEventListener('click', () => {
+        let count = 3;
+        snapBtn.disabled = true;
+        countdownEl.style.display = 'block';
+        countdownEl.innerText = count;
+
+        const timer = setInterval(() => {
+            count--;
+            if (count > 0) {
+                countdownEl.innerText = count;
+            } else {
+                clearInterval(timer);
+                countdownEl.style.display = 'none';
+                
+                // White Flash effect
+                document.body.style.background = "white";
+                setTimeout(() => { document.body.style.background = "#fdf6f0"; }, 100);
+                
+                takePhoto();
+                snapBtn.disabled = false;
+            }
+        }, 1000);
+    });
+
+    // 3. Bake Photo + Frame
+    function takePhoto() {
+        const context = canvas.getContext('2d');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        
+        // Step A: Draw Person (Un-mirror)
+        context.save();
+        context.translate(canvas.width, 0);
+        context.scale(-1, 1);
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        context.restore();
+        
+        // Step B: Draw Frame
+        if (frameImg.complete) {
+            context.drawImage(frameImg, 0, 0, canvas.width, canvas.height);
+        }
+
+        // Step C: Auto-Download
+        const link = document.createElement('a');
+        link.download = `Wedding_Photo_${Date.now()}.png`;
+        link.href = canvas.toDataURL("image/png");
+        link.click();
+    }
+
+    // Run on load
+    initCamera();
+</script>
+
+</body>
+</html>
