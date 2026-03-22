@@ -6,8 +6,9 @@
     <title>Dorothy & Kenneth's Photo Booth</title>
     <style>
         body { font-family: 'Georgia', serif; background: #fdf6f0; text-align: center; color: #5d4037; margin: 0; padding: 10px; }
-        .container { max-width: 600px; margin: auto; }
+        .container { max-width: 800px; margin: auto; }
         
+        /* Booth Window */
         #booth-wrapper { 
             position: relative; border: 10px solid #fff; border-radius: 10px; 
             box-shadow: 0 10px 30px rgba(0,0,0,0.1); background: #000; overflow: hidden; line-height: 0;
@@ -16,12 +17,14 @@
         #preview-img { display: none; }
         #frame-preview { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; }
 
+        /* Controls */
         .controls { margin-top: 15px; display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
         button { 
-            background: #d4a373; color: white; border: none; padding: 15px 30px; 
-            font-size: 1.1rem; border-radius: 50px; cursor: pointer;
+            background: #d4a373; color: white; border: none; padding: 12px 25px; 
+            font-size: 1.1rem; border-radius: 50px; cursor: pointer; transition: 0.2s;
         }
-        #switch-btn { background: #5d4037; font-size: 0.9rem; padding: 10px 20px; margin-bottom: 10px; }
+        button:active { transform: scale(0.95); }
+        #switch-btn { background: #5d4037; font-size: 0.8rem; padding: 8px 15px; margin-bottom: 10px; }
         .btn-save { background: #6b8e23; }
         .btn-retake { background: #bc4b51; }
         button:disabled { background: #ccc; }
@@ -31,25 +34,45 @@
             font-size: 8rem; color: white; z-index: 10; text-shadow: 0 0 20px rgba(0,0,0,0.8); display: none; 
         }
 
-        .gallery { margin-top: 30px; border-top: 2px solid #eaddcf; padding-top: 15px; }
-        .gallery-items { display: flex; justify-content: center; gap: 10px; height: 100px; margin-top: 10px; }
-        .gallery-items img { height: 100%; border: 3px solid white; border-radius: 5px; }
+        /* Scrollable Gallery Grid */
+        .gallery { 
+            margin-top: 30px; 
+            border-top: 2px solid #eaddcf; 
+            padding-top: 15px; 
+            background: rgba(255, 255, 255, 0.4);
+            border-radius: 15px;
+        }
+        .gallery-title { font-size: 1rem; font-style: italic; margin-bottom: 10px; color: #8d6e63; }
+        .gallery-items { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); 
+            gap: 12px; 
+            max-height: 300px; 
+            overflow-y: auto; 
+            padding: 15px;
+            border-radius: 10px;
+        }
+        .gallery-items img { 
+            width: 100%; 
+            height: auto; 
+            border: 3px solid white; 
+            border-radius: 5px; 
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            cursor: pointer;
+        }
 
-        /* Optimized for 4R (4x6) Photo Printing */
+        /* PRINT OPTIMIZATION */
         @media print {
             @page { size: landscape; margin: 0; }
             body { background: white !important; margin: 0 !important; padding: 0 !important; }
             .container > *:not(#booth-wrapper) { display: none !important; }
-    
             #booth-wrapper { 
-                border: none !important; 
-                box-shadow: none !important; 
-                width: 100% !important; 
-                height: 100% !important;
-                image-rendering: -webkit-optimize-contrast; /* Keeps the print crisp */
+                border: none !important; box-shadow: none !important; 
+                width: 100% !important; height: auto !important;
+                image-rendering: -webkit-optimize-contrast;
             }
             video { display: none !important; }
-            #preview-img { display: block !important; width: 100% !important; height: auto !important; }
+            #preview-img { display: block !important; width: 100% !important; }
         }
     </style>
 </head>
@@ -57,7 +80,7 @@
 
 <div class="container">
     <h1>Dorothy & Kenneth</h1>
-    <p>November 1, 2026 — Capture the Moment ✨</p>    
+    <p>November 1, 2026 — Capture the Moment ✨</p>   
 
     <button id="switch-btn">🔄 Switch Camera (Select A7C2 via Webcam Utility/Front/Back)</button>
 
@@ -74,11 +97,11 @@
 
     <div class="controls" id="review-controls" style="display:none;">
         <button class="btn-retake" id="retake-btn">🔄 Retake</button>
-        <button class="btn-save" id="save-btn">💾 Save & Print</button>
+        <button class="btn-save" id="save-btn">💾 Keep, Save & Print</button>
     </div>
 
     <div class="gallery">
-        <div class="gallery-title">Recent Photos</div>
+        <div class="gallery-title">Recent Gallery (Last 20 Photos)</div>
         <div class="gallery-items" id="gallery-items"></div>
     </div>
 
@@ -97,47 +120,13 @@
     const countdownEl = document.getElementById('countdown');
     const frameImg = document.getElementById('frame-source');
     const galleryContainer = document.getElementById('gallery-items');
-
+    
     let currentStream;
     let useFrontCamera = true;
     let lastCaptureData = null;
-    let savedPhotos = [];
+    let savedPhotos = []; // Stores the last 20 images
 
-    // Start Camera with High-Resolution Constraints
-    async function initCamera() {
-        if (currentStream) {
-            currentStream.getTracks().forEach(track => track.stop());
-        }
-    
-        // FORCING HIGH QUALITY:
-        // We request 4K (3840x2160). If the camera/connection only supports 1080p, 
-        // the browser will automatically give us the highest possible below 4K.
-        const constraints = { 
-            video: { 
-                width: { ideal: 3840, min: 1280 }, 
-                height: { ideal: 2160, min: 720 },
-                facingMode: useFrontCamera ? "user" : "environment" 
-            } 
-        };
-
-        try {
-            currentStream = await navigator.mediaDevices.getUserMedia(constraints);
-            video.srcObject = currentStream;
-        
-            // Mirroring logic for user experience
-            video.style.transform = useFrontCamera ? "scaleX(-1)" : "scaleX(1)";
-        
-            // Log the actual resolution we got
-            const settings = currentStream.getVideoTracks()[0].getSettings();
-            console.log(`Resolution: ${settings.width}x${settings.height}`);
-        
-        } catch (e) {
-            console.error("Camera Error:", e);
-            alert("Camera failed. Use HTTPS or check Sony Imaging Edge connection.");
-        }
-    }
-
-    // Sound Effects
+    // Audio Context for beeps
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     function playSound(freq, duration) {
         const osc = audioCtx.createOscillator();
@@ -150,13 +139,39 @@
         osc.stop(audioCtx.currentTime + duration);
     }
 
-    // Snap & Capture Logic
+    async function initCamera() {
+        if (currentStream) {
+            currentStream.getTracks().forEach(track => track.stop());
+        }
+        // Force High Res for Sony A7C2
+        const constraints = { 
+            video: { 
+                width: { ideal: 3840, min: 1280 }, 
+                height: { ideal: 2160, min: 720 },
+                facingMode: useFrontCamera ? "user" : "environment" 
+            } 
+        };
+        try {
+            currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+            video.srcObject = currentStream;
+            video.style.transform = useFrontCamera ? "scaleX(-1)" : "scaleX(1)";
+        } catch (e) {
+            console.error(e);
+            alert("Camera Error. Check USB connection or HTTPS.");
+        }
+    }
+
+    switchBtn.addEventListener('click', () => {
+        useFrontCamera = !useFrontCamera;
+        initCamera();
+    });
+
     snapBtn.addEventListener('click', () => {
         let count = 3;
         snapBtn.disabled = true;
         countdownEl.style.display = 'block';
         countdownEl.innerText = count;
-    
+        
         const timer = setInterval(() => {
             if (count > 1) {
                 playSound(440, 0.1); 
@@ -173,11 +188,9 @@
 
     function capture() {
         const ctx = canvas.getContext('2d');
-    
-        // Set canvas to match the ACTUAL video feed resolution (e.g. 1080p or 4K)
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
-    
+        
         ctx.save();
         if (useFrontCamera) {
             ctx.translate(canvas.width, 0);
@@ -185,18 +198,15 @@
         }
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         ctx.restore();
-    
-        // Overlay the frame
+        
         if (frameImg.complete) {
             ctx.drawImage(frameImg, 0, 0, canvas.width, canvas.height);
         }
-    
-        // HIGH QUALITY EXPORT:
-        // Using JPEG at 1.0 (100% quality) is often better for physical prints 
-        // than standard PNG compression in some browsers.
+        
+        // Export at Max Quality for printing
         lastCaptureData = canvas.toDataURL("image/jpeg", 1.0);
-    
         previewImg.src = lastCaptureData;
+        
         previewImg.style.display = 'block';
         video.style.display = 'none';
         document.getElementById('main-controls').style.display = 'none';
@@ -204,18 +214,18 @@
     }
 
     saveBtn.addEventListener('click', () => {
-        // 1. Digital Download
+        // 1. Trigger Download
         const link = document.createElement('a');
         link.download = `Wedding_${Date.now()}.jpg`;
         link.href = lastCaptureData;
         link.click();
 
-        // 2. Add to Gallery
+        // 2. Update Gallery Array (Limit 20)
         savedPhotos.unshift(lastCaptureData);
-        if (savedPhotos.length > 3) savedPhotos.pop();
+        if (savedPhotos.length > 20) savedPhotos.pop();
         updateGallery();
 
-        // 3. Print
+        // 3. Open Print Dialog
         window.print();
 
         reset();
@@ -236,14 +246,11 @@
         savedPhotos.forEach(src => {
             const img = document.createElement('img');
             img.src = src;
+            img.title = "Click to enlarge";
+            img.onclick = () => window.open(src, '_blank');
             galleryContainer.appendChild(img);
         });
     }
-
-    switchBtn.addEventListener('click', () => {
-        useFrontCamera = !useFrontCamera;
-        initCamera();
-    });
 
     initCamera();
 </script>
