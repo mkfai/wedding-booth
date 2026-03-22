@@ -35,13 +35,21 @@
         .gallery-items { display: flex; justify-content: center; gap: 10px; height: 100px; margin-top: 10px; }
         .gallery-items img { height: 100%; border: 3px solid white; border-radius: 5px; }
 
-        /* --- PRINT SETTINGS --- */
+        /* Optimized for 4R (4x6) Photo Printing */
         @media print {
-            body { background: white !important; padding: 0 !important; margin: 0 !important; }
-            .container > *:not(#booth-wrapper) { display: none !important; } /* Hide everything except the booth box */
-            #booth-wrapper { border: none !important; box-shadow: none !important; width: 100vw !important; height: auto !important; }
-            #frame-preview { display: block !important; }
-            #preview-img { display: block !important; width: 100% !important; }
+            @page { size: landscape; margin: 0; }
+            body { background: white !important; margin: 0 !important; padding: 0 !important; }
+            .container > *:not(#booth-wrapper) { display: none !important; }
+    
+            #booth-wrapper { 
+                border: none !important; 
+                box-shadow: none !important; 
+                width: 100% !important; 
+                height: 100% !important;
+                image-rendering: -webkit-optimize-contrast; /* Keeps the print crisp */
+            }
+            video { display: none !important; }
+            #preview-img { display: block !important; width: 100% !important; height: auto !important; }
         }
     </style>
 </head>
@@ -89,53 +97,66 @@
     const countdownEl = document.getElementById('countdown');
     const frameImg = document.getElementById('frame-source');
     const galleryContainer = document.getElementById('gallery-items');
-    
+
     let currentStream;
     let useFrontCamera = true;
     let lastCaptureData = null;
     let savedPhotos = [];
 
-    // Audio - Built-in (No files needed)
+    // Start Camera with High-Resolution Constraints
+    async function initCamera() {
+        if (currentStream) {
+            currentStream.getTracks().forEach(track => track.stop());
+        }
+    
+        // FORCING HIGH QUALITY:
+        // We request 4K (3840x2160). If the camera/connection only supports 1080p, 
+        // the browser will automatically give us the highest possible below 4K.
+        const constraints = { 
+            video: { 
+                width: { ideal: 3840, min: 1280 }, 
+                height: { ideal: 2160, min: 720 },
+                facingMode: useFrontCamera ? "user" : "environment" 
+            } 
+        };
+
+        try {
+            currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+            video.srcObject = currentStream;
+        
+            // Mirroring logic for user experience
+            video.style.transform = useFrontCamera ? "scaleX(-1)" : "scaleX(1)";
+        
+            // Log the actual resolution we got
+            const settings = currentStream.getVideoTracks()[0].getSettings();
+            console.log(`Resolution: ${settings.width}x${settings.height}`);
+        
+        } catch (e) {
+            console.error("Camera Error:", e);
+            alert("Camera failed. Use HTTPS or check Sony Imaging Edge connection.");
+        }
+    }
+
+    // Sound Effects
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     function playSound(freq, duration) {
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
         osc.frequency.value = freq;
-        gain.gain.value = 0.1;
+        gain.gain.value = 0.05;
         osc.connect(gain);
         gain.connect(audioCtx.destination);
         osc.start();
         osc.stop(audioCtx.currentTime + duration);
     }
 
-    // Start Camera
-    async function initCamera() {
-        if (currentStream) {
-            currentStream.getTracks().forEach(track => track.stop());
-        }
-        const constraints = { 
-            video: { facingMode: useFrontCamera ? "user" : "environment" } 
-        };
-        try {
-            currentStream = await navigator.mediaDevices.getUserMedia(constraints);
-            video.srcObject = currentStream;
-            video.style.transform = useFrontCamera ? "scaleX(-1)" : "scaleX(1)";
-        } catch (e) {
-            alert("Camera Access Error. If using Sony A7C2, ensure Imaging Edge Webcam is active.");
-        }
-    }
-
-    switchBtn.addEventListener('click', () => {
-        useFrontCamera = !useFrontCamera;
-        initCamera();
-    });
-
+    // Snap & Capture Logic
     snapBtn.addEventListener('click', () => {
         let count = 3;
         snapBtn.disabled = true;
         countdownEl.style.display = 'block';
         countdownEl.innerText = count;
-        
+    
         const timer = setInterval(() => {
             if (count > 1) {
                 playSound(440, 0.1); 
@@ -152,9 +173,11 @@
 
     function capture() {
         const ctx = canvas.getContext('2d');
+    
+        // Set canvas to match the ACTUAL video feed resolution (e.g. 1080p or 4K)
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
-        
+    
         ctx.save();
         if (useFrontCamera) {
             ctx.translate(canvas.width, 0);
@@ -162,10 +185,17 @@
         }
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         ctx.restore();
-        
-        if (frameImg.complete) ctx.drawImage(frameImg, 0, 0, canvas.width, canvas.height);
-        
-        lastCaptureData = canvas.toDataURL("image/png");
+    
+        // Overlay the frame
+        if (frameImg.complete) {
+            ctx.drawImage(frameImg, 0, 0, canvas.width, canvas.height);
+        }
+    
+        // HIGH QUALITY EXPORT:
+        // Using JPEG at 1.0 (100% quality) is often better for physical prints 
+        // than standard PNG compression in some browsers.
+        lastCaptureData = canvas.toDataURL("image/jpeg", 1.0);
+    
         previewImg.src = lastCaptureData;
         previewImg.style.display = 'block';
         video.style.display = 'none';
@@ -174,9 +204,9 @@
     }
 
     saveBtn.addEventListener('click', () => {
-        // 1. Digital Backup
+        // 1. Digital Download
         const link = document.createElement('a');
-        link.download = `Dorothy_Kenneth_${Date.now()}.png`;
+        link.download = `Wedding_${Date.now()}.jpg`;
         link.href = lastCaptureData;
         link.click();
 
@@ -185,7 +215,7 @@
         if (savedPhotos.length > 3) savedPhotos.pop();
         updateGallery();
 
-        // 3. Open Printer Dialog
+        // 3. Print
         window.print();
 
         reset();
@@ -209,6 +239,11 @@
             galleryContainer.appendChild(img);
         });
     }
+
+    switchBtn.addEventListener('click', () => {
+        useFrontCamera = !useFrontCamera;
+        initCamera();
+    });
 
     initCamera();
 </script>
