@@ -1,163 +1,88 @@
-<!DOCTYPE html>
+this is the working code.<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Dorothy & Kenneth's Photo Booth</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Dorothy & Kenneth's Photo Booth</title>
+    <style>
+        body { font-family: 'Georgia', serif; background: #fdf6f0; text-align: center; color: #5d4037; margin: 0; padding: 10px; }
+        .container { max-width: 800px; margin: auto; }
+        
+        /* Booth Window */
+        #booth-wrapper { 
+            position: relative; border: 10px solid #fff; border-radius: 10px; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1); background: #000; overflow: hidden; line-height: 0;
+        }
+        video, #preview-img { width: 100%; height: auto; display: block; }
+        #preview-img { display: none; }
+        #frame-preview { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; }
 
-<style>
-/* Disable interaction fiddling */
-* { user-select: none; -webkit-user-select: none; }
+        /* Controls */
+        .controls { margin-top: 15px; display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
+        button { 
+            background: #d4a373; color: white; border: none; padding: 12px 25px; 
+            font-size: 1.1rem; border-radius: 50px; cursor: pointer; transition: 0.2s;
+        }
+        button:active { transform: scale(0.95); }
+        #switch-btn { background: #5d4037; font-size: 0.8rem; padding: 8px 15px; margin-bottom: 10px; }
+        .btn-save { background: #6b8e23; }
+        .btn-retake { background: #bc4b51; }
+        button:disabled { background: #ccc; }
 
-body {
-    font-family: 'Georgia', serif;
-    background: #fdf6f0;
-    text-align: center;
-    color: #5d4037;
-    margin: 0;
-    padding: 10px;
-}
+        #countdown { 
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); 
+            font-size: 8rem; color: white; z-index: 10; text-shadow: 0 0 20px rgba(0,0,0,0.8); display: none; 
+        }
 
-.container { max-width: 800px; margin: auto; }
+        /* Scrollable Gallery Grid */
+        .gallery { 
+            margin-top: 30px; 
+            border-top: 2px solid #eaddcf; 
+            padding-top: 15px; 
+            background: rgba(255, 255, 255, 0.4);
+            border-radius: 15px;
+        }
+        .gallery-title { font-size: 1rem; font-style: italic; margin-bottom: 10px; color: #8d6e63; }
+        .gallery-items { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); 
+            gap: 12px; 
+            max-height: 300px; 
+            overflow-y: auto; 
+            padding: 15px;
+            border-radius: 10px;
+        }
+        .gallery-items img { 
+            width: 100%; 
+            height: auto; 
+            border: 3px solid white; 
+            border-radius: 5px; 
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            cursor: pointer;
+        }
 
-/* Welcome screen */
-#welcome-screen {
-    padding: 40px 20px;
-}
-#welcome-screen img {
-    max-width: 80%;
-    height: auto;
-}
-
-/* Switch camera */
-#switch-btn {
-    background: #5d4037;
-    font-size: 0.8rem;
-    padding: 8px 15px;
-    margin-bottom: 10px;
-}
-
-/* Booth window */
-#booth-wrapper {
-    position: relative;
-    border: 10px solid #fff;
-    border-radius: 10px;
-    background: #000;
-    overflow: hidden;
-}
-video, #preview-img {
-    width: 100%;
-    display: block;
-}
-#preview-img { display: none; }
-
-/* Frame overlay (LIVE ONLY) */
-#frame-preview {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    z-index: 5;
-    pointer-events: none;
-}
-
-/* Countdown */
-#countdown {
-    position: absolute;
-    inset: 0;
-    display: none;
-    align-items: center;
-    justify-content: center;
-    font-size: 8rem;
-    color: white;
-    z-index: 10;
-}
-
-/* Controls */
-.controls {
-    margin-top: 15px;
-    display: flex;
-    justify-content: center;
-    gap: 10px;
-}
-button {
-    background: #d4a373;
-    color: white;
-    border: none;
-    padding: 12px 25px;
-    font-size: 1.1rem;
-    border-radius: 50px;
-    cursor: pointer;
-}
-.btn-save { background: #6b8e23; }
-.btn-retake { background: #bc4b51; }
-
-/* Gallery */
-.gallery {
-    margin-top: 30px;
-    border-top: 2px solid #eaddcf;
-    padding-top: 15px;
-}
-.gallery-title {
-    font-size: 1rem;
-    font-style: italic;
-    margin-bottom: 10px;
-}
-.gallery-items {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-    gap: 12px;
-    max-height: 300px;
-    overflow-y: auto;
-    padding: 10px;
-}
-.gallery-items img {
-    width: 100%;
-    border: 3px solid white;
-    border-radius: 5px;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-    cursor: pointer;
-}
-
-/* Flash (screen only) */
-#flash {
-    position: fixed;
-    inset: 0;
-    background: white;
-    opacity: 0;
-    pointer-events: none;
-    z-index: 9999;
-}
-
-/* ✅ PRINT — ONLY the static captured image */
-@media print {
-    @page { size: landscape; margin: 0; }
-    body * { display: none !important; }
-    #print-img {
-        display: block !important;
-        width: 100% !important;
-    }
-}
-</style>
+        /* PRINT OPTIMIZATION */
+        @media print {
+            @page { size: landscape; margin: 0; }
+            body { background: white !important; margin: 0 !important; padding: 0 !important; }
+            .container > *:not(#booth-wrapper) { display: none !important; }
+            #booth-wrapper { 
+                border: none !important; box-shadow: none !important; 
+                width: 100% !important; height: auto !important;
+                image-rendering: -webkit-optimize-contrast;
+            }
+            video { display: none !important; }
+            #preview-img { display: block !important; width: 100% !important; }
+        }
+    </style>
 </head>
-
 <body>
 
 <div class="container">
+    <h1>Dorothy & Kenneth</h1>
+    <p>November 1, 2026 — Capture the Moment ✨</p>   
 
-<h1>Dorothy & Kenneth</h1>
-<p>November 1, 2026 — Capture the Moment ✨</p>
-
-<!-- Welcome -->
-<div id="welcome-screen">
-    <img src="welcome.png" alt="Welcome">
-    <br><br>
-    <button id="start-btn">📸 Start Photo Booth</button>
-</div>
-
-<!-- Booth UI -->
-<div id="booth-ui" style="display:none;">
-    <button id="switch-btn">🔄 Switch Camera</button>
+    <button id="switch-btn">🔄 Switch Camera (Select A7C2 via Webcam Utility/Front/Back)</button>
 
     <div id="booth-wrapper">
         <video id="video" autoplay playsinline muted></video>
@@ -179,171 +104,155 @@ button {
         <div class="gallery-title">Recent Gallery (Last 20 Photos)</div>
         <div class="gallery-items" id="gallery-items"></div>
     </div>
+
+    <canvas id="canvas" style="display:none;"></canvas>
+    <img src="frame.png" id="frame-source" style="display:none;">
 </div>
-
-<!-- Hidden resources -->
-<canvas id="canvas" style="display:none;"></canvas>
-<img src="frame.png" id="frame-source" style="display:none;">
-<img id="print-img" style="display:none;">
-
-</div>
-
-<div id="flash"></div>
 
 <script>
-const video = document.getElementById("video");
-const canvas = document.getElementById("canvas");
-const previewImg = document.getElementById("preview-img");
-const frameImg = document.getElementById("frame-source");
-const framePreview = document.getElementById("frame-preview");
-const printImg = document.getElementById("print-img");
-const flash = document.getElementById("flash");
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const previewImg = document.getElementById('preview-img');
+    const snapBtn = document.getElementById('snap-btn');
+    const saveBtn = document.getElementById('save-btn');
+    const retakeBtn = document.getElementById('retake-btn');
+    const switchBtn = document.getElementById('switch-btn');
+    const countdownEl = document.getElementById('countdown');
+    const frameImg = document.getElementById('frame-source');
+    const galleryContainer = document.getElementById('gallery-items');
+    
+    let currentStream;
+    let useFrontCamera = true;
+    let lastCaptureData = null;
+    let savedPhotos = []; // Stores the last 20 images
 
-const snapBtn = document.getElementById("snap-btn");
-const saveBtn = document.getElementById("save-btn");
-const retakeBtn = document.getElementById("retake-btn");
-const switchBtn = document.getElementById("switch-btn");
-const startBtn = document.getElementById("start-btn");
-
-const welcomeScreen = document.getElementById("welcome-screen");
-const boothUI = document.getElementById("booth-ui");
-const countdownEl = document.getElementById("countdown");
-const gallery = document.getElementById("gallery-items");
-
-let stream;
-let frontCamera = true;
-let savedPhotos = [];
-let lastCapture;
-let idleTimer;
-const IDLE_MS = 60000;
-
-/* Camera */
-async function startCamera() {
-    stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: frontCamera ? "user" : "environment" }
-    });
-    video.srcObject = stream;
-    video.style.transform = frontCamera ? "scaleX(-1)" : "none";
-}
-
-function stopCamera() {
-    stream?.getTracks().forEach(t => t.stop());
-    stream = null;
-}
-
-/* Start */
-startBtn.onclick = () => {
-    welcomeScreen.style.display = "none";
-    boothUI.style.display = "block";
-    startCamera();
-    resetIdle();
-};
-
-/* Switch camera */
-switchBtn.onclick = () => {
-    frontCamera = !frontCamera;
-    stopCamera();
-    startCamera();
-};
-
-/* Idle */
-function resetIdle() {
-    clearTimeout(idleTimer);
-    idleTimer = setTimeout(() => {
-        stopCamera();
-        boothUI.style.display = "none";
-        welcomeScreen.style.display = "block";
-    }, IDLE_MS);
-}
-["click","touchstart","mousemove"].forEach(e =>
-    document.addEventListener(e, resetIdle)
-);
-
-/* Capture */
-snapBtn.onclick = () => {
-    let c = 3;
-    countdownEl.style.display = "flex";
-    countdownEl.textContent = c;
-
-    const t = setInterval(() => {
-        if (--c) countdownEl.textContent = c;
-        else {
-            clearInterval(t);
-            countdownEl.style.display = "none";
-            capture();
-        }
-    }, 1000);
-};
-
-function capture() {
-    flash.style.opacity = "1";
-    setTimeout(() => flash.style.opacity = "0", 150);
-
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    const ctx = canvas.getContext("2d");
-
-    ctx.save();
-    if (frontCamera) {
-        ctx.translate(canvas.width, 0);
-        ctx.scale(-1, 1);
+    // Audio Context for beeps
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    function playSound(freq, duration) {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.frequency.value = freq;
+        gain.gain.value = 0.05;
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
     }
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    ctx.restore(); // ✅ reset transform
 
-    ctx.drawImage(frameImg, 0, 0, canvas.width, canvas.height);
+    async function initCamera() {
+        if (currentStream) {
+            currentStream.getTracks().forEach(track => track.stop());
+        }
+        // Force High Res for Sony A7C2
+        const constraints = { 
+            video: { 
+                width: { ideal: 3840, min: 1280 }, 
+                height: { ideal: 2160, min: 720 },
+                facingMode: useFrontCamera ? "user" : "environment" 
+            } 
+        };
+        try {
+            currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+            video.srcObject = currentStream;
+            video.style.transform = useFrontCamera ? "scaleX(-1)" : "scaleX(1)";
+        } catch (e) {
+            console.error(e);
+            alert("Camera Error. Check USB connection or HTTPS.");
+        }
+    }
 
-    lastCapture = canvas.toDataURL("image/jpeg", 1);
-    previewImg.src = lastCapture;
-    printImg.src = lastCapture;
-
-    framePreview.style.display = "none";
-
-    previewImg.style.display = "block";
-    video.style.display = "none";
-    document.getElementById("main-controls").style.display = "none";
-    document.getElementById("review-controls").style.display = "flex";
-}
-
-/* Save / Print */
-saveBtn.onclick = () => {
-    const a = document.createElement("a");
-    a.href = lastCapture;
-    a.download = `Wedding_${Date.now()}.jpg`;
-    a.click();
-
-    savedPhotos.unshift(lastCapture);
-    if (savedPhotos.length > 20) savedPhotos.pop();
-    updateGallery();
-
-    setTimeout(() => window.print(), 200);
-    resetBooth();
-};
-
-retakeBtn.onclick = resetBooth;
-
-function resetBooth() {
-    previewImg.style.display = "none";
-    video.style.display = "block";
-    framePreview.style.display = "block";
-    document.getElementById("main-controls").style.display = "flex";
-    document.getElementById("review-controls").style.display = "none";
-}
-
-/* Gallery */
-function updateGallery() {
-    gallery.innerHTML = "";
-    savedPhotos.forEach(src => {
-        const img = document.createElement("img");
-        img.src = src;
-        img.onclick = () => window.open(src, "_blank");
-        gallery.appendChild(img);
+    switchBtn.addEventListener('click', () => {
+        useFrontCamera = !useFrontCamera;
+        initCamera();
     });
-}
 
-/* Lock down */
-document.addEventListener("contextmenu", e => e.preventDefault());
+    snapBtn.addEventListener('click', () => {
+        let count = 3;
+        snapBtn.disabled = true;
+        countdownEl.style.display = 'block';
+        countdownEl.innerText = count;
+        
+        const timer = setInterval(() => {
+            if (count > 1) {
+                playSound(440, 0.1); 
+                count--;
+                countdownEl.innerText = count;
+            } else {
+                clearInterval(timer);
+                countdownEl.style.display = 'none';
+                playSound(880, 0.2); 
+                capture();
+            }
+        }, 1000);
+    });
+
+    function capture() {
+        const ctx = canvas.getContext('2d');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        
+        ctx.save();
+        if (useFrontCamera) {
+            ctx.translate(canvas.width, 0);
+            ctx.scale(-1, 1);
+        }
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        ctx.restore();
+        
+        if (frameImg.complete) {
+            ctx.drawImage(frameImg, 0, 0, canvas.width, canvas.height);
+        }
+        
+        // Export at Max Quality for printing
+        lastCaptureData = canvas.toDataURL("image/jpeg", 1.0);
+        previewImg.src = lastCaptureData;
+        
+        previewImg.style.display = 'block';
+        video.style.display = 'none';
+        document.getElementById('main-controls').style.display = 'none';
+        document.getElementById('review-controls').style.display = 'flex';
+    }
+
+    saveBtn.addEventListener('click', () => {
+        // 1. Trigger Download
+        const link = document.createElement('a');
+        link.download = `Wedding_${Date.now()}.jpg`;
+        link.href = lastCaptureData;
+        link.click();
+
+        // 2. Update Gallery Array (Limit 20)
+        savedPhotos.unshift(lastCaptureData);
+        if (savedPhotos.length > 20) savedPhotos.pop();
+        updateGallery();
+
+        // 3. Open Print Dialog
+        window.print();
+
+        reset();
+    });
+
+    retakeBtn.addEventListener('click', reset);
+
+    function reset() {
+        previewImg.style.display = 'none';
+        video.style.display = 'block';
+        document.getElementById('main-controls').style.display = 'flex';
+        document.getElementById('review-controls').style.display = 'none';
+        snapBtn.disabled = false;
+    }
+
+    function updateGallery() {
+        galleryContainer.innerHTML = '';
+        savedPhotos.forEach(src => {
+            const img = document.createElement('img');
+            img.src = src;
+            img.title = "Click to enlarge";
+            img.onclick = () => window.open(src, '_blank');
+            galleryContainer.appendChild(img);
+        });
+    }
+
+    initCamera();
 </script>
-
 </body>
 </html>
