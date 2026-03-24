@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Dorothy & Kenneth's Photo Booth</title>
     <style>
-        /* KIOSK PROTECTION CSS */
+        /* 1. ANTI-HIGHLIGHTING & KIOSK UI */
         body { 
             font-family: 'Georgia', serif; 
             background: #fdf6f0; 
@@ -13,20 +13,16 @@
             color: #5d4037; 
             margin: 0; 
             padding: 10px;
-            
-            /* Prevents text selection/highlighting */
+            /* Prevents text highlighting */
             user-select: none; 
             -webkit-user-select: none; 
             -moz-user-select: none; 
             -ms-user-select: none;
-            
-            /* Prevents the "bounce" scroll effect on mobile/trackpads */
             overscroll-behavior: none; 
         }
 
         .container { max-width: 800px; margin: auto; }
         
-        /* Booth Window */
         #booth-wrapper { 
             position: relative; border: 10px solid #fff; border-radius: 10px; 
             box-shadow: 0 10px 30px rgba(0,0,0,0.1); background: #000; overflow: hidden; line-height: 0;
@@ -35,12 +31,10 @@
         #preview-img { display: none; }
         #frame-preview { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; }
 
-        /* Controls */
         .controls { margin-top: 15px; display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
         button { 
             background: #d4a373; color: white; border: none; padding: 12px 25px; 
             font-size: 1.1rem; border-radius: 50px; cursor: pointer; transition: 0.2s;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }
         button:active { transform: scale(0.95); }
         #switch-btn { background: #5d4037; font-size: 0.8rem; padding: 8px 15px; margin-bottom: 10px; }
@@ -53,54 +47,35 @@
             font-size: 8rem; color: white; z-index: 10; text-shadow: 0 0 20px rgba(0,0,0,0.8); display: none; 
         }
 
-        /* Scrollable Gallery Grid */
         .gallery { 
-            margin-top: 30px; 
-            border-top: 2px solid #eaddcf; 
-            padding-top: 15px; 
-            background: rgba(255, 255, 255, 0.4);
-            border-radius: 15px;
+            margin-top: 30px; border-top: 2px solid #eaddcf; padding-top: 15px; 
+            background: rgba(255, 255, 255, 0.4); border-radius: 15px;
         }
-        .gallery-title { font-size: 1rem; font-style: italic; margin-bottom: 10px; color: #8d6e63; }
         .gallery-items { 
-            display: grid; 
-            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); 
-            gap: 12px; 
-            max-height: 300px; 
-            overflow-y: auto; 
-            padding: 15px;
-            border-radius: 10px;
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); 
+            gap: 12px; max-height: 300px; overflow-y: auto; padding: 15px;
         }
-        .gallery-items img { 
-            width: 100%; 
-            height: auto; 
-            border: 3px solid white; 
-            border-radius: 5px; 
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-            cursor: pointer;
-        }
+        .gallery-items img { width: 100%; height: auto; border: 3px solid white; border-radius: 5px; cursor: pointer; }
 
-        /* PRINT OPTIMIZATION */
         @media print {
             @page { size: landscape; margin: 0; }
             body { background: white !important; margin: 0 !important; padding: 0 !important; }
             .container > *:not(#booth-wrapper) { display: none !important; }
-            #booth-wrapper { 
-                border: none !important; box-shadow: none !important; 
-                width: 100% !important; height: auto !important;
-                image-rendering: -webkit-optimize-contrast;
-            }
+            #booth-wrapper { border: none !important; width: 100% !important; height: auto !important; }
             video { display: none !important; }
             #preview-img { display: block !important; width: 100% !important; }
         }
     </style>
 </head>
-<body oncontextmenu="return false;"> <div class="container">
+<body oncontextmenu="return false;">
+
+<div class="container">
     <h1>Dorothy & Kenneth</h1>
     <p>November 1, 2026 — Capture the Moment ✨</p>   
 
-    <button id="switch-btn">🔄 Switch Camera (Select A7C2 / Front / Back)</button>
-<div id="booth-wrapper">
+    <button id="switch-btn">🔄 Switch Camera</button>
+
+    <div id="booth-wrapper">
         <video id="video" autoplay playsinline muted></video>
         <img id="preview-img">
         <img src="frame.png" id="frame-preview">
@@ -118,11 +93,11 @@
 
     <div class="gallery">
         <div class="gallery-title">Recent Gallery (Last 20 Photos)</div>
-        <div class="gallery-items" id="gallery-items"></div>
+        <div id="gallery-items" class="gallery-items"></div>
     </div>
 
     <canvas id="canvas" style="display:none;"></canvas>
-    <img src="frame.png" id="frame-source" style="display:none;">
+<img src="frame.png" id="frame-source" style="display:none;">
 </div>
 
 <script>
@@ -142,37 +117,26 @@
     let lastCaptureData = null;
     let savedPhotos = []; 
 
-    // Audio Context for beeps
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    function playSound(freq, duration) {
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.frequency.value = freq;
-        gain.gain.value = 0.05;
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
-        osc.start();
-        osc.stop(audioCtx.currentTime + duration);
-    }
-
     async function initCamera() {
         if (currentStream) {
             currentStream.getTracks().forEach(track => track.stop());
         }
+        
+        // Simple constraints to ensure compatibility
         const constraints = { 
             video: { 
-                width: { ideal: 3840, min: 1280 }, 
-                height: { ideal: 2160, min: 720 },
-                facingMode: useFrontCamera ? "user" : "environment" 
+                width: { ideal: 1920 }, 
+                height: { ideal: 1080 }
             } 
         };
+
         try {
             currentStream = await navigator.mediaDevices.getUserMedia(constraints);
             video.srcObject = currentStream;
-            video.style.transform = useFrontCamera ? "scaleX(-1)" : "scaleX(1)";
+            console.log("Camera started successfully.");
         } catch (e) {
-            console.error(e);
-            alert("Camera Error. Check USB connection or ensure you are using HTTPS / Localhost.");
+            console.error("Camera error: ", e);
+            alert("Camera blocked or not found. Please click the camera icon in the address bar to allow access.");
         }
     }
 
@@ -189,13 +153,11 @@
         
         const timer = setInterval(() => {
             if (count > 1) {
-                playSound(440, 0.1); 
                 count--;
                 countdownEl.innerText = count;
             } else {
                 clearInterval(timer);
                 countdownEl.style.display = 'none';
-                playSound(880, 0.2); 
                 capture();
             }
         }, 1000);
@@ -206,20 +168,14 @@
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
         
-        ctx.save();
-        if (useFrontCamera) {
-            ctx.translate(canvas.width, 0);
-            ctx.scale(-1, 1);
-        }
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        ctx.restore();
         
         if (frameImg.complete) {
             ctx.drawImage(frameImg, 0, 0, canvas.width, canvas.height);
         }
-lastCaptureData = canvas.toDataURL("image/jpeg", 1.0);
-        previewImg.src = lastCaptureData;
         
+        lastCaptureData = canvas.toDataURL("image/jpeg", 1.0);
+        previewImg.src = lastCaptureData;
         previewImg.style.display = 'block';
         video.style.display = 'none';
         document.getElementById('main-controls').style.display = 'none';
@@ -260,6 +216,7 @@ lastCaptureData = canvas.toDataURL("image/jpeg", 1.0);
         });
     }
 
+    // Start camera immediately
     initCamera();
 </script>
 </body>
