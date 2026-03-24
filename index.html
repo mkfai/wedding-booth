@@ -85,84 +85,93 @@
 </div>
 
 <script>
+    // --- 1. GLOBALLY DEFINE THE FUNCTIONS FIRST ---
+// This ensures 'activateBooth' is defined before the HTML button is clicked.
+
+let currentStream;
+let savedPhotos = JSON.parse(localStorage.getItem('weddingGallery')) || [];
+let inactivityTimer;
+
+// This function MUST be global
+window.activateBooth = async function() {
+    console.log("Activating Booth...");
+    const startOverlay = document.getElementById('start-overlay');
+    
+    if (startOverlay) {
+        startOverlay.style.display = 'none';
+    }
+    
+    await initCamera();
+    resetInactivityTimer();
+};
+
+async function initCamera() {
     const video = document.getElementById('video');
-    const canvas = document.getElementById('canvas');
-    const previewImg = document.getElementById('preview-img');
+    
+    if (currentStream) {
+        currentStream.getTracks().forEach(t => t.stop());
+    }
+    
+    const constraints = { 
+        video: { 
+            width: { ideal: 3840 }, 
+            height: { ideal: 2160 } 
+        } 
+    };
+
+    try {
+        currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+        video.srcObject = currentStream;
+        console.log("Sony A7C2 / Camera linked successfully.");
+    } catch (e) {
+        console.error("Camera Access Error:", e);
+        alert("Camera failed to start. Please check the USB connection to your Sony A7C2.");
+        document.getElementById('start-overlay').style.display = 'flex';
+    }
+}
+
+// --- 2. SETUP REMAINING LOGIC AFTER DOM LOADS ---
+document.addEventListener('DOMContentLoaded', () => {
     const snapBtn = document.getElementById('snap-btn');
     const saveBtn = document.getElementById('save-btn');
     const retakeBtn = document.getElementById('retake-btn');
-    const countdownEl = document.getElementById('countdown');
-    const flashEl = document.getElementById('flash');
-    const frameImg = document.getElementById('frame-source');
     const galleryContainer = document.getElementById('gallery-items');
-    const startOverlay = document.getElementById('start-overlay');
     
-    let currentStream;
-    let savedPhotos = JSON.parse(localStorage.getItem('weddingGallery')) || [];
-    let inactivityTimer;
-
-    // Load existing gallery on page load
+    // Initial gallery render
     updateGallery();
 
-    // 1. CLICK TO START
-    async function activateBooth() {
-        console.log("Activating Booth...");
-        startOverlay.style.display = 'none'; // Hide overlay immediately
-        await initCamera(); // Then try camera
-        resetInactivityTimer();
-    }
-
-    // 2. CAMERA INITIALIZATION
-    async function initCamera() {
-        if (currentStream) {
-            currentStream.getTracks().forEach(t => t.stop());
-        }
-        
-        const constraints = { 
-            video: { 
-                width: { ideal: 3840 }, 
-                height: { ideal: 2160 } 
-            } 
-        };
-
-        try {
-            currentStream = await navigator.mediaDevices.getUserMedia(constraints);
-            video.srcObject = currentStream;
-            console.log("Camera started successfully.");
-        } catch (e) {
-            console.error("Camera Error:", e);
-            alert("Could not start camera. Please ensure your Sony A7C2 is connected and you are using HTTPS (or localhost).");
-            startOverlay.style.display = 'flex'; // Show overlay again if it fails
-        }
-    }
-
-    // 3. INACTIVITY TIMER
-    function resetInactivityTimer() {
+    // Inactivity / Auto-Sleep Logic
+    window.resetInactivityTimer = function() {
         clearTimeout(inactivityTimer);
         inactivityTimer = setTimeout(() => {
-            console.log("Inactivity timeout: going to sleep.");
-            if (currentStream) {
-                currentStream.getTracks().forEach(t => t.stop());
-            }
-            startOverlay.style.display = 'flex';
+            if (currentStream) currentStream.getTracks().forEach(t => t.stop());
+            document.getElementById('start-overlay').style.display = 'flex';
             resetBoothUI();
         }, 300000); // 5 Minutes
-    }
+    };
 
-    // --- BOOTH LOGIC ---
-
+    // --- SNAP LOGIC ---
     snapBtn.addEventListener('click', () => {
+        const countdownEl = document.getElementById('countdown');
         let count = 3;
         snapBtn.disabled = true;
         countdownEl.style.display = 'block';
         countdownEl.innerText = count;
+        
         const timer = setInterval(() => {
-            if (count > 1) { count--; countdownEl.innerText = count; } 
-            else { clearInterval(timer); countdownEl.style.display = 'none'; triggerFlash(); }
+            if (count > 1) { 
+                count--; 
+                countdownEl.innerText = count; 
+            } else { 
+                clearInterval(timer); 
+                countdownEl.style.display = 'none'; 
+                triggerFlash(); 
+            }
         }, 1000);
     });
 
     function triggerFlash() {
+        const flashEl = document.getElementById('flash');
         flashEl.style.opacity = '1';
         setTimeout(() => {
             capture();
@@ -172,14 +181,22 @@
     }
 
     function capture() {
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const frameImg = document.getElementById('frame-source');
+        const previewImg = document.getElementById('preview-img');
+
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
         const ctx = canvas.getContext('2d');
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        if (frameImg.complete) ctx.drawImage(frameImg, 0, 0, canvas.width, canvas.height);
         
-        lastCaptureData = canvas.toDataURL("image/jpeg", 1.0);
-        previewImg.src = lastCaptureData;
+        if (frameImg.complete) {
+            ctx.drawImage(frameImg, 0, 0, canvas.width, canvas.height);
+        }
+        
+        window.lastCaptureData = canvas.toDataURL("image/jpeg", 1.0);
+        previewImg.src = window.lastCaptureData;
         previewImg.style.display = 'block';
         video.style.display = 'none';
         document.getElementById('main-controls').style.display = 'none';
@@ -187,12 +204,13 @@
     }
 
     saveBtn.addEventListener('click', () => {
-const link = document.createElement('a');
+        const link = document.
+createElement('a');
         link.download = Wedding_${Date.now()}.jpg;
-        link.href = lastCaptureData;
+        link.href = window.lastCaptureData;
         link.click();
 
-        savedPhotos.unshift(lastCaptureData);
+        savedPhotos.unshift(window.lastCaptureData);
         if (savedPhotos.length > 20) savedPhotos.pop();
         localStorage.setItem('weddingGallery', JSON.stringify(savedPhotos));
         
@@ -204,12 +222,11 @@ const link = document.createElement('a');
     retakeBtn.addEventListener('click', resetBoothUI);
 
     function resetBoothUI() {
-        previewImg.style.display = 'none';
-        video.style.display = 'block';
+        document.getElementById('preview-img').style.display = 'none';
+        document.getElementById('video').style.display = 'block';
         document.getElementById('main-controls').style.display = 'flex';
         document.getElementById('review-controls').style.display = 'none';
         snapBtn.disabled = false;
-        flashEl.style.transition = 'none';
     }
 
     function updateGallery() {
@@ -221,6 +238,7 @@ const link = document.createElement('a');
             galleryContainer.appendChild(img);
         });
     }
+});
 </script>
 </body>
 </html>
