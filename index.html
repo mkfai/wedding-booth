@@ -258,6 +258,9 @@
         });
     }
 
+    // Disable drag
+    document.addEventListener("dragstart", e => e.preventDefault());
+
     // ✅ Disable right-click safely
     document.addEventListener("contextmenu", function (e) {
         e.preventDefault();
