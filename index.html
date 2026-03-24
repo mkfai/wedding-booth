@@ -7,7 +7,8 @@
     <style>
         body { font-family: 'Georgia', serif; background: #fdf6f0; text-align: center; color: #5d4037; margin: 0; padding: 10px; }
         .container { max-width: 800px; margin: auto; }
-        
+        <button id="fullscreen-btn" style="display:none;"></button>
+
 	* {
     	-webkit-user-select: none;
  	   -ms-user-select: none;
@@ -265,6 +266,26 @@
     document.addEventListener("contextmenu", function (e) {
         e.preventDefault();
     });
+
+	// FULLSCREEN KIOSK MODE
+	function enterFullscreen() {
+	    const el = document.documentElement;
+	    if (el.requestFullscreen) el.requestFullscreen();
+	    else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+	}
+
+	// Attempt fullscreen on first user interaction
+	document.addEventListener('click', function tryFS() {
+	    enterFullscreen();
+ 	   document.removeEventListener('click', tryFS);
+	});
+
+	// Re-enter fullscreen if exited
+	document.addEventListener('fullscreenchange', () => {
+ 	   if (!document.fullscreenElement) {
+ 	       setTimeout(enterFullscreen, 500);
+ 	   }
+	});
 
     initCamera();
 </script>
