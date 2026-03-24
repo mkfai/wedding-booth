@@ -25,6 +25,19 @@
         #preview-img { display: none; }
         #frame-preview { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; }
 
+	/* Flash effect (visual only) */
+	#flash {
+ 	   position: absolute;
+ 	   top: 0;
+ 	   left: 0;
+ 	   width: 100%;
+ 	   height: 100%;
+ 	   background: white;
+ 	   opacity: 0;
+ 	   pointer-events: none;
+ 	   z-index: 20;
+	}
+
         /* Controls */
         .controls { margin-top: 15px; display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
         button { 
@@ -96,6 +109,7 @@
         <video id="video" autoplay playsinline muted></video>
         <img id="preview-img">
         <img src="frame.png" id="frame-preview">
+        <div id="flash"></div> <!-- ✅ FLASH OVERLAY -->
         <div id="countdown">3</div>
     </div>
 
@@ -195,6 +209,15 @@
     });
 
     function capture() {
+	// Flash effect (visual only)
+   	 const flash = document.getElementById('flash');
+  	  flash.style.transition = 'none';
+  	  flash.style.opacity = '1';
+  	  setTimeout(() => {
+   	     flash.style.transition = 'opacity 0.25s ease-out';
+   	     flash.style.opacity = '0';
+  	  }, 50);
+
         const ctx = canvas.getContext('2d');
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
