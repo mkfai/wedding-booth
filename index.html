@@ -258,6 +258,11 @@
         });
     }
 
+    // ✅ Disable right-click safely
+    document.addEventListener("contextmenu", function (e) {
+        e.preventDefault();
+    });
+
     initCamera();
 </script>
 </body>
