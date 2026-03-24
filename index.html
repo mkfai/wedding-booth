@@ -6,7 +6,7 @@
 <title>Dorothy & Kenneth's Photo Booth</title>
 
 <style>
-/* Disable selection */
+/* Disable interaction fiddling */
 * { user-select: none; -webkit-user-select: none; }
 
 body {
@@ -17,9 +17,10 @@ body {
     margin: 0;
     padding: 10px;
 }
+
 .container { max-width: 800px; margin: auto; }
 
-/* Welcome */
+/* Welcome screen */
 #welcome-screen {
     padding: 40px 20px;
 }
@@ -36,7 +37,7 @@ body {
     margin-bottom: 10px;
 }
 
-/* Booth */
+/* Booth window */
 #booth-wrapper {
     position: relative;
     border: 10px solid #fff;
@@ -50,14 +51,14 @@ video, #preview-img {
 }
 #preview-img { display: none; }
 
-/* Frame overlay (LIVE CAMERA ONLY) */
+/* Frame overlay (LIVE ONLY) */
 #frame-preview {
     position: absolute;
     inset: 0;
     width: 100%;
     height: 100%;
-    pointer-events: none;
     z-index: 5;
+    pointer-events: none;
 }
 
 /* Countdown */
@@ -128,21 +129,14 @@ button {
     z-index: 9999;
 }
 
-/* ✅ PRINT — ONLY captured image */
+/* ✅ PRINT — ONLY the static captured image */
 @media print {
     @page { size: landscape; margin: 0; }
     body * { display: none !important; }
-
-    #booth-wrapper,
-    #booth-wrapper * { display: block !important; }
-
-    video { display: none !important; }
-    #frame-preview { display: none !important; }
-    #preview-img {
+    #print-img {
         display: block !important;
         width: 100% !important;
     }
-    #flash { display: none !important; }
 }
 </style>
 </head>
@@ -156,7 +150,7 @@ button {
 
 <!-- Welcome -->
 <div id="welcome-screen">
-    <img src="welcome.png">
+    <img src="welcome.png" alt="Welcome">
     <br><br>
     <button id="start-btn">📸 Start Photo Booth</button>
 </div>
@@ -168,7 +162,7 @@ button {
     <div id="booth-wrapper">
         <video id="video" autoplay playsinline muted></video>
         <img id="preview-img">
-        <img id="frame-preview" src="frame.png">
+        <img src="frame.png" id="frame-preview">
         <div id="countdown">3</div>
     </div>
 
@@ -187,8 +181,10 @@ button {
     </div>
 </div>
 
+<!-- Hidden resources -->
 <canvas id="canvas" style="display:none;"></canvas>
-<img id="frame-source" src="frame.png" style="display:none">
+<img src="frame.png" id="frame-source" style="display:none;">
+<img id="print-img" style="display:none;">
 
 </div>
 
@@ -200,21 +196,22 @@ const canvas = document.getElementById("canvas");
 const previewImg = document.getElementById("preview-img");
 const frameImg = document.getElementById("frame-source");
 const framePreview = document.getElementById("frame-preview");
+const printImg = document.getElementById("print-img");
 const flash = document.getElementById("flash");
 
 const snapBtn = document.getElementById("snap-btn");
 const saveBtn = document.getElementById("save-btn");
 const retakeBtn = document.getElementById("retake-btn");
 const switchBtn = document.getElementById("switch-btn");
-const countdownEl = document.getElementById("countdown");
+const startBtn = document.getElementById("start-btn");
 
 const welcomeScreen = document.getElementById("welcome-screen");
 const boothUI = document.getElementById("booth-ui");
-const startBtn = document.getElementById("start-btn");
+const countdownEl = document.getElementById("countdown");
 const gallery = document.getElementById("gallery-items");
 
 let stream;
-let useFront = true;
+let frontCamera = true;
 let savedPhotos = [];
 let lastCapture;
 let idleTimer;
@@ -223,17 +220,18 @@ const IDLE_MS = 60000;
 /* Camera */
 async function startCamera() {
     stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: useFront ? "user" : "environment" }
+        video: { facingMode: frontCamera ? "user" : "environment" }
     });
     video.srcObject = stream;
-    video.style.transform = useFront ? "scaleX(-1)" : "scaleX(1)";
+    video.style.transform = frontCamera ? "scaleX(-1)" : "none";
 }
+
 function stopCamera() {
     stream?.getTracks().forEach(t => t.stop());
     stream = null;
 }
 
-/* Welcome */
+/* Start */
 startBtn.onclick = () => {
     welcomeScreen.style.display = "none";
     boothUI.style.display = "block";
@@ -243,7 +241,7 @@ startBtn.onclick = () => {
 
 /* Switch camera */
 switchBtn.onclick = () => {
-    useFront = !useFront;
+    frontCamera = !frontCamera;
     stopCamera();
     startCamera();
 };
@@ -266,6 +264,7 @@ snapBtn.onclick = () => {
     let c = 3;
     countdownEl.style.display = "flex";
     countdownEl.textContent = c;
+
     const t = setInterval(() => {
         if (--c) countdownEl.textContent = c;
         else {
@@ -273,27 +272,30 @@ snapBtn.onclick = () => {
             countdownEl.style.display = "none";
             capture();
         }
-    },1000);
+    }, 1000);
 };
 
 function capture() {
     flash.style.opacity = "1";
-    setTimeout(()=>flash.style.opacity="0",150);
+    setTimeout(() => flash.style.opacity = "0", 150);
 
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     const ctx = canvas.getContext("2d");
 
-    if (useFront) {
-        ctx.translate(canvas.width,0);
-        ctx.scale(-1,1);
+    ctx.save();
+    if (frontCamera) {
+        ctx.translate(canvas.width, 0);
+        ctx.scale(-1, 1);
     }
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    ctx.restore(); // ✅ reset transform
 
-    ctx.drawImage(video,0,0);
-    ctx.drawImage(frameImg,0,0,canvas.width,canvas.height);
+    ctx.drawImage(frameImg, 0, 0, canvas.width, canvas.height);
 
-    lastCapture = canvas.toDataURL("image/jpeg",1);
+    lastCapture = canvas.toDataURL("image/jpeg", 1);
     previewImg.src = lastCapture;
+    printImg.src = lastCapture;
 
     framePreview.style.display = "none";
 
@@ -314,10 +316,7 @@ saveBtn.onclick = () => {
     if (savedPhotos.length > 20) savedPhotos.pop();
     updateGallery();
 
-    requestAnimationFrame(() => {
-        setTimeout(() => window.print(), 100);
-    });
-
+    setTimeout(() => window.print(), 200);
     resetBooth();
 };
 
@@ -342,7 +341,7 @@ function updateGallery() {
     });
 }
 
-/* Disable right click */
+/* Lock down */
 document.addEventListener("contextmenu", e => e.preventDefault());
 </script>
 
