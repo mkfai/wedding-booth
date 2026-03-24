@@ -1,10 +1,18 @@
-this is the working code.<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Dorothy & Kenneth's Photo Booth</title>
     <style>
+	
+	/* Disable text selection – safe for camera */
+	* {
+   	 -webkit-user-select: none;  /* Safari */
+  	  -ms-user-select: none;      /* IE */
+ 	   user-select: none;          /* Standard */
+	}
+	
         body { font-family: 'Georgia', serif; background: #fdf6f0; text-align: center; color: #5d4037; margin: 0; padding: 10px; }
         .container { max-width: 800px; margin: auto; }
         
@@ -252,7 +260,14 @@ this is the working code.<!DOCTYPE html>
         });
     }
 
+    /* Disable right-click / context menu */
+    document.addEventListener("contextmenu", function (e) {
+        e.preventDefault();
+    });
+
     initCamera();
+
+
 </script>
 </body>
 </html>
