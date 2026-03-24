@@ -82,7 +82,7 @@
     <h1>Dorothy & Kenneth</h1>
     <p>November 1, 2026 — Capture the Moment ✨</p>   
 
-    <button id="switch-btn">🔄 Switch Camera (Select A7C2 / Front / Back)</button>
+    <button id="switch-btn">🔄 Switch Camera (Select A7C2 via Webcam Utility/Front/Back)</button>
 
     <div id="booth-wrapper">
         <video id="video" autoplay playsinline muted></video>
@@ -98,7 +98,7 @@
     <div class="controls" id="review-controls" style="display:none;">
         <button class="btn-retake" id="retake-btn">🔄 Retake</button>
         <button class="btn-save" id="save-btn">💾 Keep, Save & Print</button>
-</div>
+    </div>
 
     <div class="gallery">
         <div class="gallery-title">Recent Gallery (Last 20 Photos)</div>
@@ -124,7 +124,7 @@
     let currentStream;
     let useFrontCamera = true;
     let lastCaptureData = null;
-    let savedPhotos = []; 
+    let savedPhotos = []; // Stores the last 20 images
 
     // Audio Context for beeps
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -143,6 +143,7 @@
         if (currentStream) {
             currentStream.getTracks().forEach(track => track.stop());
         }
+        // Force High Res for Sony A7C2
         const constraints = { 
             video: { 
                 width: { ideal: 3840, min: 1280 }, 
@@ -202,6 +203,7 @@
             ctx.drawImage(frameImg, 0, 0, canvas.width, canvas.height);
         }
         
+        // Export at Max Quality for printing
         lastCaptureData = canvas.toDataURL("image/jpeg", 1.0);
         previewImg.src = lastCaptureData;
         
@@ -212,16 +214,20 @@
     }
 
     saveBtn.addEventListener('click', () => {
+        // 1. Trigger Download
         const link = document.createElement('a');
-        link.download = Wedding_${Date.now()}.jpg;
+        link.download = `Wedding_${Date.now()}.jpg`;
         link.href = lastCaptureData;
         link.click();
 
+        // 2. Update Gallery Array (Limit 20)
         savedPhotos.unshift(lastCaptureData);
-if (savedPhotos.length > 20) savedPhotos.pop();
+        if (savedPhotos.length > 20) savedPhotos.pop();
         updateGallery();
 
+        // 3. Open Print Dialog
         window.print();
+
         reset();
     });
 
@@ -240,6 +246,7 @@ if (savedPhotos.length > 20) savedPhotos.pop();
         savedPhotos.forEach(src => {
             const img = document.createElement('img');
             img.src = src;
+            img.title = "Click to enlarge";
             img.onclick = () => window.open(src, '_blank');
             galleryContainer.appendChild(img);
         });
