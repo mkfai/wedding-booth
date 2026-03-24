@@ -138,7 +138,12 @@
 
     /* PRINT – only print the captured image */
     @media print {
-
+	
+	/* Never print the flash overlay */
+	#flash {
+ 	   display: none !important;
+	}
+	``
         @page {
             size: landscape;
             margin: 0;
@@ -379,9 +384,20 @@ saveBtn.onclick = () => {
     if (savedPhotos.length > 20) savedPhotos.pop();
     updateGallery();
 
-    window.print();
-    reset();
-};
+    // Ensure flash is fully hidden before printing
+	const flash = document.getElementById('flash');
+	flash.style.transition = 'none';
+	flash.style.opacity = '0';
+
+	// Allow render to settle, then print
+	setTimeout(() => {
+	#flash {
+ 	   display: none !important;
+	}  	 
+ 	window.print();
+  	  reset();
+	}, 100);
+	};
 
 retakeBtn.onclick = reset;
 
