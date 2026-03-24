@@ -135,6 +135,49 @@
         pointer-events: none;
         z-index: 9999;
     }
+
+    /* PRINT – only print the captured image */
+    @media print {
+
+        @page {
+            size: landscape;
+            margin: 0;
+        }
+
+        body {
+            background: white !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        /* Hide everything */
+        body * {
+            display: none !important;
+        }
+
+        /* Show only booth wrapper */
+        #booth-wrapper,
+        #booth-wrapper * {
+            display: block !important;
+        }
+
+        #booth-wrapper {
+            border: none !important;
+            box-shadow: none !important;
+            width: 100% !important;
+        }
+
+        /* Force captured image, hide live video */
+        video {
+            display: none !important;
+        }
+
+        #preview-img {
+            display: block !important;
+            width: 100% !important;
+        }
+    }
+
 </style>
 </head>
 
