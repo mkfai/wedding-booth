@@ -7,7 +7,7 @@
 
 <style>
 /* Disable selection */
-* { -webkit-user-select: none; user-select: none; }
+* { user-select: none; -webkit-user-select: none; }
 
 body {
     font-family: 'Georgia', serif;
@@ -17,12 +17,16 @@ body {
     margin: 0;
     padding: 10px;
 }
-
 .container { max-width: 800px; margin: auto; }
 
 /* Welcome */
-#welcome-screen { padding: 40px 20px; }
-#welcome-screen img { max-width: 80%; height: auto; }
+#welcome-screen {
+    padding: 40px 20px;
+}
+#welcome-screen img {
+    max-width: 80%;
+    height: auto;
+}
 
 /* Switch camera */
 #switch-btn {
@@ -40,11 +44,13 @@ body {
     background: #000;
     overflow: hidden;
 }
-
-video, #preview-img { width: 100%; display: block; }
+video, #preview-img {
+    width: 100%;
+    display: block;
+}
 #preview-img { display: none; }
 
-/* Frame overlay */
+/* Frame overlay (LIVE CAMERA ONLY) */
 #frame-preview {
     position: absolute;
     inset: 0;
@@ -73,7 +79,6 @@ video, #preview-img { width: 100%; display: block; }
     justify-content: center;
     gap: 10px;
 }
-
 button {
     background: #d4a373;
     color: white;
@@ -83,23 +88,20 @@ button {
     border-radius: 50px;
     cursor: pointer;
 }
-
 .btn-save { background: #6b8e23; }
 .btn-retake { background: #bc4b51; }
 
-/* ✅ RESTORED GALLERY */
+/* Gallery */
 .gallery {
     margin-top: 30px;
     border-top: 2px solid #eaddcf;
     padding-top: 15px;
 }
-
 .gallery-title {
     font-size: 1rem;
     font-style: italic;
     margin-bottom: 10px;
 }
-
 .gallery-items {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
@@ -108,7 +110,6 @@ button {
     overflow-y: auto;
     padding: 10px;
 }
-
 .gallery-items img {
     width: 100%;
     border: 3px solid white;
@@ -117,7 +118,7 @@ button {
     cursor: pointer;
 }
 
-/* Flash — screen only */
+/* Flash (screen only) */
 #flash {
     position: fixed;
     inset: 0;
@@ -127,17 +128,20 @@ button {
     z-index: 9999;
 }
 
-/* ✅ PRINT (only captured image) */
+/* ✅ PRINT — ONLY captured image */
 @media print {
     @page { size: landscape; margin: 0; }
-
     body * { display: none !important; }
 
     #booth-wrapper,
     #booth-wrapper * { display: block !important; }
 
     video { display: none !important; }
-    #preview-img { display: block !important; width: 100% !important; }
+    #frame-preview { display: none !important; }
+    #preview-img {
+        display: block !important;
+        width: 100% !important;
+    }
     #flash { display: none !important; }
 }
 </style>
@@ -152,7 +156,8 @@ button {
 
 <!-- Welcome -->
 <div id="welcome-screen">
-    <img src="welcome.png"><br><br>
+    <img src="welcome.png">
+    <br><br>
     <button id="start-btn">📸 Start Photo Booth</button>
 </div>
 
@@ -163,7 +168,7 @@ button {
     <div id="booth-wrapper">
         <video id="video" autoplay playsinline muted></video>
         <img id="preview-img">
-        <img src="frame.png" id="frame-preview">
+        <img id="frame-preview" src="frame.png">
         <div id="countdown">3</div>
     </div>
 
@@ -176,7 +181,6 @@ button {
         <button class="btn-save" id="save-btn">💾 Keep, Save & Print</button>
     </div>
 
-    <!-- ✅ RESTORED GALLERY -->
     <div class="gallery">
         <div class="gallery-title">Recent Gallery (Last 20 Photos)</div>
         <div class="gallery-items" id="gallery-items"></div>
@@ -184,32 +188,33 @@ button {
 </div>
 
 <canvas id="canvas" style="display:none;"></canvas>
-<img src="frame.png" id="frame-source" style="display:none;">
+<img id="frame-source" src="frame.png" style="display:none">
+
 </div>
 
 <div id="flash"></div>
 
 <script>
-const video = document.getElementById('video');
-const canvas = document.getElementById('canvas');
-const previewImg = document.getElementById('preview-img');
-const frameImg = document.getElementById('frame-source');
-const flash = document.getElementById('flash');
+const video = document.getElementById("video");
+const canvas = document.getElementById("canvas");
+const previewImg = document.getElementById("preview-img");
+const frameImg = document.getElementById("frame-source");
+const framePreview = document.getElementById("frame-preview");
+const flash = document.getElementById("flash");
 
-const snapBtn = document.getElementById('snap-btn');
-const saveBtn = document.getElementById('save-btn');
-const retakeBtn = document.getElementById('retake-btn');
-const switchBtn = document.getElementById('switch-btn');
+const snapBtn = document.getElementById("snap-btn");
+const saveBtn = document.getElementById("save-btn");
+const retakeBtn = document.getElementById("retake-btn");
+const switchBtn = document.getElementById("switch-btn");
+const countdownEl = document.getElementById("countdown");
 
-const countdownEl = document.getElementById('countdown');
-const gallery = document.getElementById('gallery-items');
-
-const welcomeScreen = document.getElementById('welcome-screen');
-const boothUI = document.getElementById('booth-ui');
-const startBtn = document.getElementById('start-btn');
+const welcomeScreen = document.getElementById("welcome-screen");
+const boothUI = document.getElementById("booth-ui");
+const startBtn = document.getElementById("start-btn");
+const gallery = document.getElementById("gallery-items");
 
 let stream;
-let useFrontCamera = true;
+let useFront = true;
 let savedPhotos = [];
 let lastCapture;
 let idleTimer;
@@ -218,30 +223,29 @@ const IDLE_MS = 60000;
 /* Camera */
 async function startCamera() {
     stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: useFrontCamera ? "user" : "environment" }
+        video: { facingMode: useFront ? "user" : "environment" }
     });
     video.srcObject = stream;
-    video.style.transform = useFrontCamera ? "scaleX(-1)" : "scaleX(1)";
+    video.style.transform = useFront ? "scaleX(-1)" : "scaleX(1)";
 }
-
 function stopCamera() {
     stream?.getTracks().forEach(t => t.stop());
     stream = null;
 }
 
-/* Switch camera */
-switchBtn.onclick = () => {
-    useFrontCamera = !useFrontCamera;
-    stopCamera();
-    startCamera();
-};
-
-/* Start */
+/* Welcome */
 startBtn.onclick = () => {
     welcomeScreen.style.display = "none";
     boothUI.style.display = "block";
     startCamera();
     resetIdle();
+};
+
+/* Switch camera */
+switchBtn.onclick = () => {
+    useFront = !useFront;
+    stopCamera();
+    startCamera();
 };
 
 /* Idle */
@@ -262,7 +266,6 @@ snapBtn.onclick = () => {
     let c = 3;
     countdownEl.style.display = "flex";
     countdownEl.textContent = c;
-
     const t = setInterval(() => {
         if (--c) countdownEl.textContent = c;
         else {
@@ -281,7 +284,7 @@ function capture() {
     canvas.height = video.videoHeight;
     const ctx = canvas.getContext("2d");
 
-    if (useFrontCamera) {
+    if (useFront) {
         ctx.translate(canvas.width,0);
         ctx.scale(-1,1);
     }
@@ -292,13 +295,15 @@ function capture() {
     lastCapture = canvas.toDataURL("image/jpeg",1);
     previewImg.src = lastCapture;
 
-    previewImg.style.display="block";
-    video.style.display="none";
-    document.getElementById("main-controls").style.display="none";
-    document.getElementById("review-controls").style.display="flex";
+    framePreview.style.display = "none";
+
+    previewImg.style.display = "block";
+    video.style.display = "none";
+    document.getElementById("main-controls").style.display = "none";
+    document.getElementById("review-controls").style.display = "flex";
 }
 
-/* Save / print */
+/* Save / Print */
 saveBtn.onclick = () => {
     const a = document.createElement("a");
     a.href = lastCapture;
@@ -309,33 +314,37 @@ saveBtn.onclick = () => {
     if (savedPhotos.length > 20) savedPhotos.pop();
     updateGallery();
 
-    setTimeout(()=>window.print(),100);
+    requestAnimationFrame(() => {
+        setTimeout(() => window.print(), 100);
+    });
+
     resetBooth();
 };
 
 retakeBtn.onclick = resetBooth;
 
 function resetBooth() {
-    previewImg.style.display="none";
-    video.style.display="block";
-    document.getElementById("main-controls").style.display="flex";
-    document.getElementById("review-controls").style.display="none";
+    previewImg.style.display = "none";
+    video.style.display = "block";
+    framePreview.style.display = "block";
+    document.getElementById("main-controls").style.display = "flex";
+    document.getElementById("review-controls").style.display = "none";
 }
 
 /* Gallery */
 function updateGallery() {
-    gallery.innerHTML="";
-    savedPhotos.forEach(src=>{
-        const img=document.createElement("img");
-        img.src=src;
-        img.onclick=()=>window.open(src,"_blank");
+    gallery.innerHTML = "";
+    savedPhotos.forEach(src => {
+        const img = document.createElement("img");
+        img.src = src;
+        img.onclick = () => window.open(src, "_blank");
         gallery.appendChild(img);
     });
 }
 
-document.addEventListener("contextmenu",e=>e.preventDefault());
+/* Disable right click */
+document.addEventListener("contextmenu", e => e.preventDefault());
 </script>
 
 </body>
 </html>
-``
