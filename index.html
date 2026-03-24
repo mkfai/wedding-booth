@@ -103,6 +103,14 @@
     <h1>Dorothy & Kenneth</h1>
     <p>November 1, 2026 — Capture the Moment ✨</p>   
 
+<!-- Welcome Screen -->
+<div id="welcome-screen">
+    <img src="welcome.png" alt="Welcome" style="max-width:80%; height:auto;">
+    <br><br>
+    <button id="start-btn">📸 Start Photo Booth</button>
+</div>	
+
+<div id="booth-ui" style="display:none;">
     <button id="switch-btn">🔄 Switch Camera (Select A7C2 via Webcam Utility/Front/Back)</button>
 
     <div id="booth-wrapper">
@@ -127,6 +135,8 @@
         <div class="gallery-items" id="gallery-items"></div>
     </div>
 
+</div> <!-- end booth-ui -->
+
     <canvas id="canvas" style="display:none;"></canvas>
     <img src="frame.png" id="frame-source" style="display:none;">
 </div>
@@ -142,11 +152,20 @@
     const countdownEl = document.getElementById('countdown');
     const frameImg = document.getElementById('frame-source');
     const galleryContainer = document.getElementById('gallery-items');
-    
+    const welcomeScreen = document.getElementById('welcome-screen');
+    const boothUI = document.getElementById('booth-ui');
+    const startBtn = document.getElementById('start-btn');
+
     let currentStream;
     let useFrontCamera = true;
     let lastCaptureData = null;
     let savedPhotos = []; // Stores the last 20 images
+
+	startBtn.addEventListener('click', () => {
+  	  welcomeScreen.style.display = 'none';
+  	  boothUI.style.display = 'block';
+  	  initCamera();
+	});
 
     // Audio Context for beeps
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -288,7 +307,7 @@
         e.preventDefault();
     });
 
-    initCamera();
+    // initCamera();
 
 
 </script>
