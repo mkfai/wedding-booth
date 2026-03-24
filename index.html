@@ -6,11 +6,8 @@
 <title>Dorothy & Kenneth's Photo Booth</title>
 
 <style>
-/* Disable text selection */
-* {
-    -webkit-user-select: none;
-    user-select: none;
-}
+/* Disable selection */
+* { -webkit-user-select: none; user-select: none; }
 
 body {
     font-family: 'Georgia', serif;
@@ -21,22 +18,21 @@ body {
     padding: 10px;
 }
 
-.container {
-    max-width: 800px;
-    margin: auto;
+.container { max-width: 800px; margin: auto; }
+
+/* Welcome */
+#welcome-screen { padding: 40px 20px; }
+#welcome-screen img { max-width: 80%; height: auto; }
+
+/* Switch camera */
+#switch-btn {
+    background: #5d4037;
+    font-size: 0.8rem;
+    padding: 8px 15px;
+    margin-bottom: 10px;
 }
 
-/* Welcome screen */
-#welcome-screen {
-    padding: 40px 20px;
-}
-
-#welcome-screen img {
-    max-width: 80%;
-    height: auto;
-}
-
-/* Booth window */
+/* Booth */
 #booth-wrapper {
     position: relative;
     border: 10px solid #fff;
@@ -45,15 +41,8 @@ body {
     overflow: hidden;
 }
 
-video,
-#preview-img {
-    width: 100%;
-    display: block;
-}
-
-#preview-img {
-    display: none;
-}
+video, #preview-img { width: 100%; display: block; }
+#preview-img { display: none; }
 
 /* Frame overlay */
 #frame-preview {
@@ -95,17 +84,40 @@ button {
     cursor: pointer;
 }
 
+.btn-save { background: #6b8e23; }
+.btn-retake { background: #bc4b51; }
+
+/* ✅ RESTORED GALLERY */
 .gallery {
-    margin-top: 20px;
+    margin-top: 30px;
+    border-top: 2px solid #eaddcf;
+    padding-top: 15px;
+}
+
+.gallery-title {
+    font-size: 1rem;
+    font-style: italic;
+    margin-bottom: 10px;
 }
 
 .gallery-items {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(120px,1fr));
-    gap: 10px;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 12px;
+    max-height: 300px;
+    overflow-y: auto;
+    padding: 10px;
 }
 
-/* Flash overlay (screen only) */
+.gallery-items img {
+    width: 100%;
+    border: 3px solid white;
+    border-radius: 5px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    cursor: pointer;
+}
+
+/* Flash — screen only */
 #flash {
     position: fixed;
     inset: 0;
@@ -115,36 +127,18 @@ button {
     z-index: 9999;
 }
 
-/* ✅ PRINT – only captured image */
+/* ✅ PRINT (only captured image) */
 @media print {
     @page { size: landscape; margin: 0; }
-    body {
-        background: white !important;
-        margin: 0 !important;
-        padding: 0 !important;
-    }
 
-    body * {
-        display: none !important;
-    }
+    body * { display: none !important; }
 
     #booth-wrapper,
-    #booth-wrapper * {
-        display: block !important;
-    }
+    #booth-wrapper * { display: block !important; }
 
-    video {
-        display: none !important;
-    }
-
-    #preview-img {
-        display: block !important;
-        width: 100% !important;
-    }
-
-    #flash {
-        display: none !important;
-    }
+    video { display: none !important; }
+    #preview-img { display: block !important; width: 100% !important; }
+    #flash { display: none !important; }
 }
 </style>
 </head>
@@ -156,14 +150,15 @@ button {
 <h1>Dorothy & Kenneth</h1>
 <p>November 1, 2026 — Capture the Moment ✨</p>
 
-<!-- ✅ WELCOME SCREEN -->
+<!-- Welcome -->
 <div id="welcome-screen">
-    <img src="welcome.png" alt="Welcome"><br><br>
+    <img src="welcome.png"><br><br>
     <button id="start-btn">📸 Start Photo Booth</button>
 </div>
 
-<!-- BOOTH UI -->
+<!-- Booth UI -->
 <div id="booth-ui" style="display:none;">
+    <button id="switch-btn">🔄 Switch Camera</button>
 
     <div id="booth-wrapper">
         <video id="video" autoplay playsinline muted></video>
@@ -177,20 +172,19 @@ button {
     </div>
 
     <div class="controls" id="review-controls" style="display:none;">
-        <button id="retake-btn">🔄 Retake</button>
-        <button id="save-btn">💾 Keep, Save & Print</button>
+        <button class="btn-retake" id="retake-btn">🔄 Retake</button>
+        <button class="btn-save" id="save-btn">💾 Keep, Save & Print</button>
     </div>
 
+    <!-- ✅ RESTORED GALLERY -->
     <div class="gallery">
+        <div class="gallery-title">Recent Gallery (Last 20 Photos)</div>
         <div class="gallery-items" id="gallery-items"></div>
     </div>
-
 </div>
 
-<!-- Hidden capture resources -->
 <canvas id="canvas" style="display:none;"></canvas>
 <img src="frame.png" id="frame-source" style="display:none;">
-
 </div>
 
 <div id="flash"></div>
@@ -200,130 +194,148 @@ const video = document.getElementById('video');
 const canvas = document.getElementById('canvas');
 const previewImg = document.getElementById('preview-img');
 const frameImg = document.getElementById('frame-source');
+const flash = document.getElementById('flash');
+
 const snapBtn = document.getElementById('snap-btn');
 const saveBtn = document.getElementById('save-btn');
 const retakeBtn = document.getElementById('retake-btn');
+const switchBtn = document.getElementById('switch-btn');
+
 const countdownEl = document.getElementById('countdown');
-const flash = document.getElementById('flash');
+const gallery = document.getElementById('gallery-items');
 
 const welcomeScreen = document.getElementById('welcome-screen');
 const boothUI = document.getElementById('booth-ui');
 const startBtn = document.getElementById('start-btn');
-const gallery = document.getElementById('gallery-items');
 
-let stream, lastCapture, savedPhotos = [];
+let stream;
+let useFrontCamera = true;
+let savedPhotos = [];
+let lastCapture;
 let idleTimer;
 const IDLE_MS = 60000;
 
-/* Camera control */
+/* Camera */
 async function startCamera() {
-    stream = await navigator.mediaDevices.getUserMedia({ video: true });
+    stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: useFrontCamera ? "user" : "environment" }
+    });
     video.srcObject = stream;
+    video.style.transform = useFrontCamera ? "scaleX(-1)" : "scaleX(1)";
 }
 
 function stopCamera() {
-    if (stream) {
-        stream.getTracks().forEach(t => t.stop());
-        stream = null;
-    }
+    stream?.getTracks().forEach(t => t.stop());
+    stream = null;
 }
 
-/* Welcome → booth */
+/* Switch camera */
+switchBtn.onclick = () => {
+    useFrontCamera = !useFrontCamera;
+    stopCamera();
+    startCamera();
+};
+
+/* Start */
 startBtn.onclick = () => {
-    welcomeScreen.style.display = 'none';
-    boothUI.style.display = 'block';
+    welcomeScreen.style.display = "none";
+    boothUI.style.display = "block";
     startCamera();
     resetIdle();
 };
 
-/* Idle handling */
+/* Idle */
 function resetIdle() {
     clearTimeout(idleTimer);
     idleTimer = setTimeout(() => {
         stopCamera();
-        boothUI.style.display = 'none';
-        welcomeScreen.style.display = 'block';
+        boothUI.style.display = "none";
+        welcomeScreen.style.display = "block";
     }, IDLE_MS);
 }
-
-['click','touchstart','mousemove']
-    .forEach(e => document.addEventListener(e, resetIdle));
+["click","touchstart","mousemove"].forEach(e =>
+    document.addEventListener(e, resetIdle)
+);
 
 /* Capture */
 snapBtn.onclick = () => {
     let c = 3;
-    countdownEl.style.display = 'flex';
+    countdownEl.style.display = "flex";
     countdownEl.textContent = c;
 
-    const timer = setInterval(() => {
-        if (--c) {
-            countdownEl.textContent = c;
-        } else {
-            clearInterval(timer);
-            countdownEl.style.display = 'none';
+    const t = setInterval(() => {
+        if (--c) countdownEl.textContent = c;
+        else {
+            clearInterval(t);
+            countdownEl.style.display = "none";
             capture();
         }
-    }, 1000);
+    },1000);
 };
 
 function capture() {
-    flash.style.opacity = '1';
-    setTimeout(() => flash.style.opacity = '0', 150);
+    flash.style.opacity = "1";
+    setTimeout(()=>flash.style.opacity="0",150);
 
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
+    const ctx = canvas.getContext("2d");
 
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(video, 0, 0);
-    ctx.drawImage(frameImg, 0, 0, canvas.width, canvas.height);
+    if (useFrontCamera) {
+        ctx.translate(canvas.width,0);
+        ctx.scale(-1,1);
+    }
 
-    lastCapture = canvas.toDataURL('image/jpeg', 1);
+    ctx.drawImage(video,0,0);
+    ctx.drawImage(frameImg,0,0,canvas.width,canvas.height);
+
+    lastCapture = canvas.toDataURL("image/jpeg",1);
     previewImg.src = lastCapture;
 
-    previewImg.style.display = 'block';
-    video.style.display = 'none';
-    document.getElementById('main-controls').style.display = 'none';
-    document.getElementById('review-controls').style.display = 'flex';
+    previewImg.style.display="block";
+    video.style.display="none";
+    document.getElementById("main-controls").style.display="none";
+    document.getElementById("review-controls").style.display="flex";
 }
 
 /* Save / print */
 saveBtn.onclick = () => {
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = lastCapture;
     a.download = `Wedding_${Date.now()}.jpg`;
     a.click();
 
     savedPhotos.unshift(lastCapture);
+    if (savedPhotos.length > 20) savedPhotos.pop();
     updateGallery();
 
-    flash.style.opacity = '0';
-    setTimeout(() => window.print(), 100);
-
+    setTimeout(()=>window.print(),100);
     resetBooth();
 };
 
 retakeBtn.onclick = resetBooth;
 
 function resetBooth() {
-    previewImg.style.display = 'none';
-    video.style.display = 'block';
-    document.getElementById('main-controls').style.display = 'flex';
-    document.getElementById('review-controls').style.display = 'none';
+    previewImg.style.display="none";
+    video.style.display="block";
+    document.getElementById("main-controls").style.display="flex";
+    document.getElementById("review-controls").style.display="none";
 }
 
 /* Gallery */
 function updateGallery() {
-    gallery.innerHTML = '';
-    savedPhotos.slice(0,20).forEach(src => {
-        const img = document.createElement('img');
-        img.src = src;
+    gallery.innerHTML="";
+    savedPhotos.forEach(src=>{
+        const img=document.createElement("img");
+        img.src=src;
+        img.onclick=()=>window.open(src,"_blank");
         gallery.appendChild(img);
     });
 }
 
-/* Disable right-click */
-document.addEventListener('contextmenu', e => e.preventDefault());
+document.addEventListener("contextmenu",e=>e.preventDefault());
 </script>
 
 </body>
 </html>
+``
