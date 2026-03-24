@@ -5,122 +5,66 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Dorothy & Kenneth's Photo Booth</title>
     <style>
-        /* KIOSK STYLING */
-        body { 
-            font-family: 'Georgia', serif; 
-            background: #fdf6f0; 
-            text-align: center; 
-            color: #5d4037; 
-            margin: 0; 
-            padding: 10px;
-            user-select: none; /* Prevents guests from highlighting text */
-            -webkit-user-select: none;
-            overscroll-behavior: none; /* Stops the "bounce" effect */
-            overflow-x: hidden;
-        }
+        body { font-family: 'Georgia', serif; background: #fdf6f0; text-align: center; color: #5d4037; margin: 0; padding: 10px; user-select: none; -webkit-user-select: none; }
+        .container { max-width: 800px; margin: auto; position: relative; }
         
-        .container { max-width: 800px; margin: auto; }
-        
-        #booth-wrapper { 
-            position: relative; 
-            border: 10px solid #fff; 
-            border-radius: 10px; 
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1); 
-            background: #000; 
-            overflow: hidden; 
-            line-height: 0;
+        /* THE START SCREEN - HIGHEST PRIORITY */
+        #start-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: #fdf6f0; /* Fallback color */
+            background-image: url('start_screen.png'); 
+            background-size: cover; background-position: center;
+            z-index: 9999; /* Front of everything */
+            display: flex; flex-direction: column; justify-content: flex-end; align-items: center;
+            border-radius: 10px; border: 10px solid #fff; box-sizing: border-box;
+            padding-bottom: 60px;
         }
 
-        video, #preview-img { width: 100%; height: auto; display: block; }
+        #booth-wrapper { 
+            position: relative; border: 10px solid #fff; border-radius: 10px; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1); background: #000; overflow: hidden; line-height: 0;
+            min-height: 400px; /* Prevents collapse before camera loads */
+        }
+        video, #preview-img { width: 100%; height: auto; display: block; background: #000; }
         #preview-img { display: none; }
         #frame-preview { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; }
+        #flash { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: white; opacity: 0; z-index: 50; pointer-events: none; }
 
-        /* THE FLASH EFFECT */
-        #flash {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: white;
-            opacity: 0;
-            z-index: 50;
-            pointer-events: none;
-        }
-
-        /* Controls */
         .controls { margin-top: 15px; display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
-        button { 
-            background: #d4a373; color: white; border: none; padding: 12px 25px; 
-            font-size: 1.1rem; border-radius: 50px; cursor: pointer; transition: 0.2s;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
-        button:active { transform: scale(0.95); }
-        #switch-btn { background: #5d4037; font-size: 0.8rem; padding: 8px 15px; margin-bottom: 10px; }
+        button { background: #d4a373; color: white; border: none; padding: 15px 30px; font-size: 1.1rem; border-radius: 50px; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .btn-start { background: #5d4037; font-size: 1.6rem; padding: 25px 60px; font-weight: bold; }
         .btn-save { background: #6b8e23; }
         .btn-retake { background: #bc4b51; }
-        button:disabled { background: #ccc; }
 
-        #countdown { 
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); 
-            font-size: 8rem; color: white; z-index: 20; text-shadow: 0 0 20px rgba(0,0,0,0.8); display: none; 
-        }
+        #countdown { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 8rem; color: white; z-index: 20; text-shadow: 0 0 20px rgba(0,0,0,0.8); display: none; }
 
-        /* Scrollable Gallery Grid */
-        .gallery { 
-            margin-top: 30px; 
-            border-top: 2px solid #eaddcf; 
-            padding-top: 15px; 
-            background: rgba(255, 255, 255, 0.4);
-            border-radius: 15px;
-        }
-        .gallery-title { font-size: 1rem; font-style: italic; margin-bottom: 10px; color: #8d6e63; }
-        .gallery-items { 
-            display: grid; 
-            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); 
-            gap: 12px; 
-            max-height: 300px; 
-            overflow-y: auto; 
-            padding: 15px;
-        }
-        .gallery-items img { 
-            width: 100%; 
-            height: auto; 
-            border: 3px solid white; 
-            border-radius: 5px; 
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-            cursor: pointer;
-        }
+        .gallery { margin-top: 30px; border-top: 2px solid #eaddcf; padding-top: 15px; background: rgba(255, 255, 255, 0.4); border-radius: 15px; }
+        .gallery-items { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px; max-height: 300px; overflow-y: auto; padding: 15px; }
+        .gallery-items img { width: 100%; height: auto; border: 3px solid white; border-radius: 5px; cursor: pointer; }
 
-        /* PRINT OPTIMIZATION */
         @media print {
-            @page { size: landscape; margin: 0; }
-            body { background: white !important; margin: 0 !important; padding: 0 !important; }
-            .container > *:not(#booth-wrapper) { display: none !important; }
-            #booth-wrapper { 
-                border: none !important; box-shadow: none !important; 
-                width: 100% !important; height: auto !important;
-                image-rendering: -webkit-optimize-contrast;
-            }
-            video, #flash, #countdown { display: none !important; }
-            #preview-img { display: block !important; width: 100% !important; }
+            body * { visibility: hidden; }
+            #booth-wrapper, #booth-wrapper * { visibility: visible; }
+            #booth-wrapper { position: absolute; left: 0; top: 0; width: 100% !important; border: none !important; }
         }
     </style>
 </head>
-<body>
+<body onclick="resetInactivityTimer()">
 
 <div class="container">
-<h1>Dorothy & Kenneth</h1>
-    <p>November 1, 2026 — Capture the Moment ✨</p>   
-    
-    <button id="switch-btn">🔄 Switch Camera (Select A7C2 via Webcam Utility/Front/Back)</button>
+    <div id="start-overlay">
+        <button class="btn-start" onclick="activateBooth()">✨ Tap to Start</button>
+    </div>
 
+    <h1>Dorothy & Kenneth</h1>
+    
     <div id="booth-wrapper">
         <video id="video" autoplay playsinline muted></video>
         <img id="preview-img">
         <img src="frame.png" id="frame-preview">
         <div id="countdown">3</div>
-        <div id="flash"></div> </div>
+        <div id="flash"></div>
+    </div>
 
     <div class="controls" id="main-controls">
         <button id="snap-btn">📸 Take Photo</button>
@@ -128,12 +72,12 @@
 
     <div class="controls" id="review-controls" style="display:none;">
         <button class="btn-retake" id="retake-btn">🔄 Retake</button>
-        <button class="btn-save" id="save-btn">💾 Keep, Save & Print</button>
+        <button class="btn-save" id="save-btn">💾 Save & Print</button>
     </div>
 
     <div class="gallery">
-        <div class="gallery-title">Recent Gallery (Last 20 Photos)</div>
-        <div class="gallery-items" id="gallery-items"></div>
+<div class="gallery-title">Recent Wedding Memories</div>
+        <div id="gallery-items" class="gallery-items"></div>
     </div>
 
     <canvas id="canvas" style="display:none;"></canvas>
@@ -147,95 +91,91 @@
     const snapBtn = document.getElementById('snap-btn');
     const saveBtn = document.getElementById('save-btn');
     const retakeBtn = document.getElementById('retake-btn');
-    const switchBtn = document.getElementById('switch-btn');
     const countdownEl = document.getElementById('countdown');
     const flashEl = document.getElementById('flash');
     const frameImg = document.getElementById('frame-source');
     const galleryContainer = document.getElementById('gallery-items');
+    const startOverlay = document.getElementById('start-overlay');
     
     let currentStream;
-    let useFrontCamera = true;
-    let lastCaptureData = null;
-    let savedPhotos = [];
+    let savedPhotos = JSON.parse(localStorage.getItem('weddingGallery')) || [];
+    let inactivityTimer;
 
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    function playSound(freq, duration) {
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.frequency.value = freq;
-        gain.gain.value = 0.05;
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
-        osc.start();
-        osc.stop(audioCtx.currentTime + duration);
+    // Load existing gallery on page load
+    updateGallery();
+
+    // 1. CLICK TO START
+    async function activateBooth() {
+        console.log("Activating Booth...");
+        startOverlay.style.display = 'none'; // Hide overlay immediately
+        await initCamera(); // Then try camera
+        resetInactivityTimer();
     }
 
+    // 2. CAMERA INITIALIZATION
     async function initCamera() {
         if (currentStream) {
-            currentStream.getTracks().forEach(track => track.stop());
+            currentStream.getTracks().forEach(t => t.stop());
         }
-        // Force High Res for Sony A7C2
+        
         const constraints = { 
             video: { 
                 width: { ideal: 3840 }, 
-                height: { ideal: 2160 },
-                facingMode: useFrontCamera ? "user" : "environment" 
+                height: { ideal: 2160 } 
             } 
         };
+
         try {
             currentStream = await navigator.mediaDevices.getUserMedia(constraints);
             video.srcObject = currentStream;
-            video.style.transform = useFrontCamera ? "scaleX(-1)" : "scaleX(1)";
+            console.log("Camera started successfully.");
         } catch (e) {
-            console.error(e);
-            alert("Camera Error. Check USB connection or HTTPS.");
+            console.error("Camera Error:", e);
+            alert("Could not start camera. Please ensure your Sony A7C2 is connected and you are using HTTPS (or localhost).");
+            startOverlay.style.display = 'flex'; // Show overlay again if it fails
         }
     }
+
+    // 3. INACTIVITY TIMER
+    function resetInactivityTimer() {
+        clearTimeout(inactivityTimer);
+        inactivityTimer = setTimeout(() => {
+            console.log("Inactivity timeout: going to sleep.");
+            if (currentStream) {
+                currentStream.getTracks().forEach(t => t.stop());
+            }
+            startOverlay.style.display = 'flex';
+            resetBoothUI();
+        }, 300000); // 5 Minutes
+    }
+
+    // --- BOOTH LOGIC ---
 
     snapBtn.addEventListener('click', () => {
         let count = 3;
         snapBtn.disabled = true;
         countdownEl.style.display = 'block';
         countdownEl.innerText = count;
-        
         const timer = setInterval(() => {
-            if (count > 1) {
-                playSound(440, 0.1); 
-                count--;
-                countdownEl.innerText = count;
-            } else {
-                clearInterval(timer);
-                countdownEl.style.display = 'none';
-                triggerFlash(); // START THE FLASH
-            }
+            if (count > 1) { count--; countdownEl.innerText = count; } 
+            else { clearInterval(timer); countdownEl.style.display = 'none'; triggerFlash(); }
         }, 1000);
     });
 
     function triggerFlash() {
-        // Visual Flash Animation
         flashEl.style.opacity = '1';
-        playSound(880, 0.2); // Shutter sound
-        
         setTimeout(() => {
-            capture(); // Take the photo while screen is "white"
+            capture();
             flashEl.style.opacity = '0';
             flashEl.style.transition = 'opacity 0.5s ease-out';
         }, 50);
     }
 
     function capture() {
-        const ctx = canvas.getContext('2d');
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
-        
-        ctx.save();
-        if (useFrontCamera) {
-            ctx.translate(canvas.width, 0);
-ctx.scale(-1, 1);
-        }
+        const ctx = canvas.getContext('2d');
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        ctx.restore();
-        
         if (frameImg.complete) ctx.drawImage(frameImg, 0, 0, canvas.width, canvas.height);
         
         lastCaptureData = canvas.toDataURL("image/jpeg", 1.0);
@@ -247,28 +187,29 @@ ctx.scale(-1, 1);
     }
 
     saveBtn.addEventListener('click', () => {
-        const link = document.createElement('a');
+const link = document.createElement('a');
         link.download = Wedding_${Date.now()}.jpg;
         link.href = lastCaptureData;
         link.click();
 
         savedPhotos.unshift(lastCaptureData);
         if (savedPhotos.length > 20) savedPhotos.pop();
+        localStorage.setItem('weddingGallery', JSON.stringify(savedPhotos));
+        
         updateGallery();
-
         window.print();
-        reset();
+        resetBoothUI();
     });
 
-    retakeBtn.addEventListener('click', reset);
+    retakeBtn.addEventListener('click', resetBoothUI);
 
-    function reset() {
+    function resetBoothUI() {
         previewImg.style.display = 'none';
         video.style.display = 'block';
-        flashEl.style.transition = 'none'; // Reset flash timing
         document.getElementById('main-controls').style.display = 'flex';
         document.getElementById('review-controls').style.display = 'none';
         snapBtn.disabled = false;
+        flashEl.style.transition = 'none';
     }
 
     function updateGallery() {
@@ -280,13 +221,6 @@ ctx.scale(-1, 1);
             galleryContainer.appendChild(img);
         });
     }
-
-    switchBtn.addEventListener('click', () => {
-        useFrontCamera = !useFrontCamera;
-        initCamera();
-    });
-
-    initCamera();
 </script>
 </body>
 </html>
