@@ -173,11 +173,14 @@
     let useFrontCamera = true;
     let lastCaptureData = null;
     let savedPhotos = []; // Stores the last 20 images
+    let idleTimer;
+    const IDLE_TIMEOUT = 60000; // 60 seconds (adjust if needed)
 
 	startBtn.addEventListener('click', () => {
   	  welcomeScreen.style.display = 'none';
   	  boothUI.style.display = 'block';
   	  initCamera();
+  	  resetIdleTimer(); // ✅ start idle countdown
 	});
 
     // Audio Context for beeps
@@ -322,6 +325,27 @@
 
     // initCamera();
 
+    function stopCamera() {
+        if (currentStream) {
+            currentStream.getTracks().forEach(track => track.stop());
+            currentStream = null;
+        }
+        video.srcObject = null;
+    }
+
+    function resetIdleTimer() {
+        clearTimeout(idleTimer);
+        idleTimer = setTimeout(() => {
+            // Return to welcome screen & stop camera
+            stopCamera();
+            document.getElementById('booth-ui').style.display = 'none';
+            document.getElementById('welcome-screen').style.display = 'block';
+        }, IDLE_TIMEOUT);
+    }
+
+    ['click', 'touchstart', 'mousemove'].forEach(evt => {
+        document.addEventListener(evt, resetIdleTimer);
+    });
 
 </script>
 </body>
