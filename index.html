@@ -84,17 +84,30 @@
 
         /* PRINT OPTIMIZATION */
         @media print {
-            @page { size: landscape; margin: 0; }
-            body { background: white !important; margin: 0 !important; padding: 0 !important; }
-            .container > *:not(#booth-wrapper) { display: none !important; }
-            #booth-wrapper { 
-                border: none !important; box-shadow: none !important; 
-                width: 100% !important; height: auto !important;
-                image-rendering: -webkit-optimize-contrast;
-            }
-            video { display: none !important; }
-            #preview-img { display: block !important; width: 100% !important; }
-        }
+  	  @page { size: landscape; margin: 0; }
+  	  body { background: white !important; margin: 0 !important; padding: 0 !important; }
+
+  	  /* ✅ Because booth-wrapper is now inside #booth-ui */
+  	  .container > *:not(#booth-ui) { display: none !important; }
+  	  #booth-ui { display: block !important; } /* ensure it prints even if hidden */
+ 	   #booth-ui > *:not(#booth-wrapper) { display: none !important; }
+
+ 	   #booth-wrapper {
+ 	       border: none !important;
+ 	       box-shadow: none !important;
+ 	       width: 100% !important;
+ 	       height: auto !important;
+ 	       image-rendering: -webkit-optimize-contrast;
+ 	   }
+
+ 	   video { display: none !important; }
+
+	    /* ✅ print the captured photo only */
+	    #preview-img { display: block !important; width: 100% !important; }
+
+ 	   /* optional but recommended: prevent double-frame in print */
+	    #frame-preview { display: none !important; }
+	}
     </style>
 </head>
 <body>
