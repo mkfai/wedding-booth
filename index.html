@@ -126,33 +126,44 @@
     let idleTimer;
     const IDLE_TIMEOUT = 60000;
 
+    // --- 1. THE CAMERA ENGINE ---
     async function initCamera() {
         if (currentStream) currentStream.getTracks().forEach(t => t.stop());
         const constraints = { 
-            video: { 
-                width: { ideal: 3840 }, 
-                height: { ideal: 2160 }, 
-                facingMode: useFrontCamera ? "user" : "environment" 
-            } 
+            video: { width: { ideal: 3840 }, height: { ideal: 2160 }, facingMode: useFrontCamera ? "user" : "environment" } 
         };
         try {
             currentStream = await navigator.mediaDevices.getUserMedia(constraints);
             video.srcObject = currentStream;
             video.style.transform = useFrontCamera ? "scaleX(-1)" : "scaleX(1)";
-        } catch (e) {
-            console.error("Camera access failed:", e);
+        } catch (e) { console.error("Camera error:", e); }
+    }
+
+    // --- 2. THE UI RESET ENGINE ---
+    // This ONLY fixes the buttons and hides images, but does NOT touch the camera.
+    function resetUI() {
+        previewImg.style.display = 'none';
+        video.style.display = 'block';
+        document.getElementById('main-controls').style.display = 'flex';
+        document.getElementById('review-controls').style.display = 'none';
+        qrContainer.style.display = 'none';
+        snapBtn.disabled = false;
+    }
+
+    // This is called by "Retake" or "Done" - it resets UI AND ensures camera is on.
+    async function reset() {
+        resetUI();
+        if (!currentStream || !currentStream.active) {
+            await initCamera();
         }
     }
 
-    startBtn.addEventListener('click', () => {
+    // --- 3. EVENT LISTENERS ---
+    startBtn.addEventListener('click', async () => {
         welcomeScreen.style.display = 'none';
         boothUI.style.display = 'block';
-    
-        // Ensure controls are visible just in case
-        document.getElementById('main-controls').style.display = 'flex';
-        document.getElementById('review-controls').style.display = 'none';
-    
-        initCamera();
+        resetUI();    // Ensure "Take Photo" button is visible
+        await initCamera(); // Start the Sony A7C2
         resetIdleTimer();
     });
 
@@ -176,6 +187,7 @@
                 clearInterval(timer);
                 countdownEl.style.display = 'none';
                 
+                // SONY FLASH SYNC FIX
                 flashEl.style.transition = 'none';
                 flashEl.style.opacity = '1';
                 setTimeout(() => {
@@ -211,21 +223,18 @@
         document.getElementById('review-controls').style.display = 'none';
         qrContainer.style.display = 'flex';
         qrDiv.innerHTML = "";
-        qrStatus.innerText = "☁️ Preparing Print & QR...";
+        qrStatus.innerText = "☁️ Printing & Generating QR...";
 
-        // 1. Instant Print (Safari works best if this is immediate)
-        window.print();
+        window.print(); // Trigger print immediately for iOS/PC stability
 
-        // 2. Instant Download (Skip on iOS to prevent blocking)
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
         if (!isIOS) {
             const link = document.createElement('a');
-            link.download = `Wedding_${Date.now()}.jpg`;
+            link.download = `Booth_${Date.now()}.jpg`;
             link.href = lastCaptureData;
             link.click();
         }
 
-        // 3. Upload for QR
         try {
             const base64Data = lastCaptureData.split(',')[1];
             const formData = new FormData();
@@ -248,22 +257,6 @@
         }
     });
 
-    // ✅ FIXED GLOBAL RESET FUNCTION
-    async function reset() {
-        console.log("Resetting booth...");
-        previewImg.style.display = 'none';
-        video.style.display = 'block';
-        document.getElementById('main-controls').style.display = 'flex';
-        document.getElementById('review-controls').style.display = 'none';
-        qrContainer.style.display = 'none';
-        snapBtn.disabled = false;
-
-        // Force camera restart for iOS after print dialog
-        if (!currentStream || !currentStream.active) {
-            await initCamera();
-        }
-    }
-
     function updateGallery() {
         galleryContainer.innerHTML = '';
         savedPhotos.forEach(src => {
@@ -273,25 +266,26 @@
         });
     }
 
+    // --- 4. THE IDLE ENGINE ---
     function resetIdleTimer() {
         clearTimeout(idleTimer);
-        idleTimer = setTimeout(async () => {
-            // 1. Stop the camera to save battery/CPU
+        idleTimer = setTimeout(() => {
+            // Kill the camera to save power
             if (currentStream) {
                 currentStream.getTracks().forEach(t => t.stop());
+                currentStream = null;
             }
 
-            // 2. IMPORTANT: Reset the UI state so buttons come back
-            await reset(); 
+            // Reset the UI behind the scenes so "Take Photo" is ready later
+            resetUI(); 
 
-            // 3. Switch screens
+            // Return to start
             boothUI.style.display = 'none';
             welcomeScreen.style.display = 'block';
-        
-            console.log("Booth went idle and UI was reset.");
         }, IDLE_TIMEOUT);
     }
     ['click', 'touchstart'].forEach(evt => document.addEventListener(evt, resetIdleTimer));
+
 </script>
 </body>
 </html>
