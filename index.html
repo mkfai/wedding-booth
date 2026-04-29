@@ -86,6 +86,11 @@
         @media print {
   	  @page { size: landscape; margin: 0; }
   	  body { background: white !important; margin: 0 !important; padding: 0 !important; }
+  	  /* Add this to force the image to fill the 4x6 page */
+    	    #preview-img { 
+      	      height: 100vh !important; 
+      	      object-fit: contain !important; 
+     	   }
 
   	  /* ✅ Because booth-wrapper is now inside #booth-ui */
   	  .container > *:not(#booth-ui) { display: none !important; }
@@ -219,6 +224,8 @@
     }
 
     switchBtn.addEventListener('click', () => {
+        // Only allow switching if we are not currently taking/reviewing a photo
+        if (snapBtn.disabled) return;
         useFrontCamera = !useFrontCamera;
         initCamera();
     });
@@ -238,20 +245,28 @@
                 clearInterval(timer);
                 countdownEl.style.display = 'none';
                 playSound(880, 0.2); 
-                capture();
+
+                // 1. Trigger the Visual Flash FIRST
+                const flash = document.getElementById('flash');
+                flash.style.transition = 'none';
+                flash.style.opacity = '1';
+
+                // 2. Wait exactly 100ms so the Sony A7C2/Browser lag catches the white screen
+                setTimeout(() => {
+                    capture(); // Call your existing capture function
+
+                    // 3. Fade the flash out AFTER the photo is "taken"
+                    setTimeout(() => {
+                        flash.style.transition = 'opacity 0.4s ease-out';
+                        flash.style.opacity = '0';
+                    }, 50); 
+                }, 100); 
             }
         }, 1000);
     });
 
     function capture() {
-	// Flash effect (visual only)
-   	 const flash = document.getElementById('flash');
-  	  flash.style.transition = 'none';
-  	  flash.style.opacity = '1';
-  	  setTimeout(() => {
-   	     flash.style.transition = 'opacity 0.25s ease-out';
-   	     flash.style.opacity = '0';
-  	  }, 50);
+	
 
         const ctx = canvas.getContext('2d');
         canvas.width = video.videoWidth;
