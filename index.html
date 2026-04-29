@@ -221,21 +221,39 @@
         document.getElementById('review-controls').style.display = 'flex';
     }
 
+    /* --- REPLACING THE SAVE LOGIC FOR iOS STABILITY --- */
+
     saveBtn.addEventListener('click', async () => {
-        // 1. UI State
+        // 1. UI State change immediately
         document.getElementById('review-controls').style.display = 'none';
         qrContainer.style.display = 'flex';
         qrDiv.innerHTML = "";
-        qrStatus.innerText = "☁️ Generating QR Code...";
+        qrStatus.innerText = "☁️ Uploading & Preparing Print...";
 
-        // 2. Local Save & Print (Instant)
-        const link = document.createElement('a');
-        link.download = `Wedding_${Date.now()}.jpg`;
-        link.href = lastCaptureData;
-        link.click();
+        // 2. TRIGGER PRINT FIRST (iOS Requirement)
+        // Safari prefers the print dialog to be triggered by the actual button tap
         window.print();
 
-        // 3. Upload to ImgBB
+        // 3. ATTEMPT LOCAL SAVE
+        try {
+            const link = document.createElement('a');
+            link.download = `Wedding_${Date.now()}.jpg`;
+            link.href = lastCaptureData;
+            // Check if we are on iOS
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+        
+            if (isIOS) {
+                // iOS doesn't support auto-downloading base64 well. 
+                // We rely on the QR code for the guest and the Cloud for you.
+                console.log("iOS detected: Skipping auto-download to avoid block.");
+            } else {
+                link.click();
+            }
+        } catch (e) {
+            console.log("Download prevented by browser security.");
+        }
+
+        // 4. BACKGROUND UPLOAD (Doesn't block the UI)
         try {
             const base64Data = lastCaptureData.split(',')[1];
             const formData = new FormData();
@@ -246,8 +264,7 @@
                 body: formData
             });
             const result = await response.json();
-            
-            // 4. Generate QR from ImgBB Link
+        
             new QRCode(qrDiv, {
                 text: result.data.url,
                 width: 180,
@@ -256,26 +273,30 @@
             });
             qrStatus.innerText = "✅ Ready to Scan!";
 
-            // 5. Update Gallery
             savedPhotos.unshift(lastCaptureData);
             if (savedPhotos.length > 20) savedPhotos.pop();
             updateGallery();
 
         } catch (error) {
-            qrStatus.innerText = "❌ Upload Failed (WiFi issue?)";
-            console.error(error);
+            qrStatus.innerText = "❌ Upload Failed (Check WiFi)";
         }
     });
 
-    retakeBtn.addEventListener('click', reset);
+    /* --- REPLACING THE RESET LOGIC TO RESTART CAMERA --- */
 
-    function reset() {
+    async function reset() {
         previewImg.style.display = 'none';
         video.style.display = 'block';
         document.getElementById('main-controls').style.display = 'flex';
         document.getElementById('review-controls').style.display = 'none';
         qrContainer.style.display = 'none';
         snapBtn.disabled = false;
+
+        // MANDATORY iOS FIX: Check if camera stream was killed and restart it
+        if (!currentStream || !currentStream.active) {
+            console.log("Restarting camera for iOS...");
+            await initCamera();
+        }
     }
 
     function updateGallery() {
