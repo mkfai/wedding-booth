@@ -7,13 +7,10 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     
     <style>
-        /* Global Reset & Kiosk Protection */
         * { -webkit-user-select: none; -ms-user-select: none; user-select: none; box-sizing: border-box; }
-        
         body { font-family: 'Georgia', serif; background: #fdf6f0; text-align: center; color: #5d4037; margin: 0; padding: 10px; overflow-x: hidden; }
         .container { max-width: 800px; margin: auto; }
         
-        /* Booth Window */
         #booth-wrapper { 
             position: relative; border: 10px solid #fff; border-radius: 10px; 
             box-shadow: 0 10px 30px rgba(0,0,0,0.1); background: #000; overflow: hidden; line-height: 0;
@@ -22,11 +19,9 @@
         #preview-img { display: none; }
         #frame-preview { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; }
 
-        /* Flash & Countdown Overlay */
         #flash { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: white; opacity: 0; pointer-events: none; z-index: 20; }
         #countdown { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 8rem; color: white; z-index: 10; text-shadow: 0 0 20px rgba(0,0,0,0.8); display: none; }
 
-        /* QR Container */
         #qr-container {
             display: none; flex-direction: column; align-items: center; background: white; 
             padding: 20px; border-radius: 15px; box-shadow: 0 0 20px rgba(0,0,0,0.2); 
@@ -35,21 +30,16 @@
         #qrcode { margin-bottom: 10px; border: 10px solid white; }
         #qr-status { font-size: 1rem; font-weight: bold; color: #d4a373; margin-bottom: 10px; }
 
-        /* Controls */
         .controls { margin-top: 15px; display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
         button { background: #d4a373; color: white; border: none; padding: 12px 25px; font-size: 1.1rem; border-radius: 50px; cursor: pointer; transition: 0.2s; }
         button:active { transform: scale(0.95); }
-        button:disabled { background: #ccc; }
-        #switch-btn { background: #5d4037; font-size: 0.8rem; padding: 8px 15px; margin-bottom: 10px; }
         .btn-save { background: #6b8e23; }
         .btn-retake { background: #bc4b51; }
 
-        /* Gallery */
         .gallery { margin-top: 30px; border-top: 2px solid #eaddcf; padding-top: 15px; background: rgba(255, 255, 255, 0.4); border-radius: 15px; }
         .gallery-items { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px; max-height: 300px; overflow-y: auto; padding: 15px; }
-        .gallery-items img { width: 100%; height: auto; border: 3px solid white; border-radius: 5px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        .gallery-items img { width: 100%; height: auto; border: 3px solid white; border-radius: 5px; }
 
-        /* PRINT OPTIMIZATION (Optimized for 4x6 Dye-Sub) */
         @media print {
             @page { size: landscape; margin: 0; }
             body { background: white !important; margin: 0 !important; padding: 0 !important; }
@@ -96,7 +86,7 @@
         </div>
 
         <div class="controls" id="review-controls" style="display:none;">
-            <button class="btn-retake" id="retake-btn">🔄 Retake</button>
+            <button class="btn-retake" onclick="reset()">🔄 Retake</button>
             <button class="btn-save" id="save-btn">💾 Keep, Save & Print</button>
         </div>
 
@@ -117,7 +107,6 @@
     const previewImg = document.getElementById('preview-img');
     const snapBtn = document.getElementById('snap-btn');
     const saveBtn = document.getElementById('save-btn');
-    const retakeBtn = document.getElementById('retake-btn');
     const switchBtn = document.getElementById('switch-btn');
     const countdownEl = document.getElementById('countdown');
     const flashEl = document.getElementById('flash');
@@ -137,27 +126,22 @@
     let idleTimer;
     const IDLE_TIMEOUT = 60000;
 
-    // Audio Logic
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    function playSound(freq, duration) {
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.frequency.value = freq;
-        gain.gain.value = 0.05;
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
-        osc.start();
-        osc.stop(audioCtx.currentTime + duration);
-    }
-
     async function initCamera() {
         if (currentStream) currentStream.getTracks().forEach(t => t.stop());
-        const constraints = { video: { width: { ideal: 3840 }, height: { ideal: 2160 }, facingMode: useFrontCamera ? "user" : "environment" } };
+        const constraints = { 
+            video: { 
+                width: { ideal: 3840 }, 
+                height: { ideal: 2160 }, 
+                facingMode: useFrontCamera ? "user" : "environment" 
+            } 
+        };
         try {
             currentStream = await navigator.mediaDevices.getUserMedia(constraints);
             video.srcObject = currentStream;
             video.style.transform = useFrontCamera ? "scaleX(-1)" : "scaleX(1)";
-        } catch (e) { alert("Camera Error. Please check Sony A7C2 connection."); }
+        } catch (e) {
+            console.error("Camera access failed:", e);
+        }
     }
 
     startBtn.addEventListener('click', () => {
@@ -168,7 +152,7 @@
     });
 
     switchBtn.addEventListener('click', () => {
-        if (snapBtn.disabled) return; // Enhancement: Safety check
+        if (snapBtn.disabled) return;
         useFrontCamera = !useFrontCamera;
         initCamera();
     });
@@ -181,15 +165,12 @@
         
         const timer = setInterval(() => {
             if (count > 1) {
-                playSound(440, 0.1); 
                 count--;
                 countdownEl.innerText = count;
             } else {
                 clearInterval(timer);
                 countdownEl.style.display = 'none';
-                playSound(880, 0.2); 
                 
-                // FLASH SYNC ENHANCEMENT
                 flashEl.style.transition = 'none';
                 flashEl.style.opacity = '1';
                 setTimeout(() => {
@@ -221,39 +202,25 @@
         document.getElementById('review-controls').style.display = 'flex';
     }
 
-    /* --- REPLACING THE SAVE LOGIC FOR iOS STABILITY --- */
-
     saveBtn.addEventListener('click', async () => {
-        // 1. UI State change immediately
         document.getElementById('review-controls').style.display = 'none';
         qrContainer.style.display = 'flex';
         qrDiv.innerHTML = "";
-        qrStatus.innerText = "☁️ Uploading & Preparing Print...";
+        qrStatus.innerText = "☁️ Preparing Print & QR...";
 
-        // 2. TRIGGER PRINT FIRST (iOS Requirement)
-        // Safari prefers the print dialog to be triggered by the actual button tap
+        // 1. Instant Print (Safari works best if this is immediate)
         window.print();
 
-        // 3. ATTEMPT LOCAL SAVE
-        try {
+        // 2. Instant Download (Skip on iOS to prevent blocking)
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+        if (!isIOS) {
             const link = document.createElement('a');
             link.download = `Wedding_${Date.now()}.jpg`;
             link.href = lastCaptureData;
-            // Check if we are on iOS
-            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-        
-            if (isIOS) {
-                // iOS doesn't support auto-downloading base64 well. 
-                // We rely on the QR code for the guest and the Cloud for you.
-                console.log("iOS detected: Skipping auto-download to avoid block.");
-            } else {
-                link.click();
-            }
-        } catch (e) {
-            console.log("Download prevented by browser security.");
+            link.click();
         }
 
-        // 4. BACKGROUND UPLOAD (Doesn't block the UI)
+        // 3. Upload for QR
         try {
             const base64Data = lastCaptureData.split(',')[1];
             const formData = new FormData();
@@ -264,27 +231,21 @@
                 body: formData
             });
             const result = await response.json();
-        
-            new QRCode(qrDiv, {
-                text: result.data.url,
-                width: 180,
-                height: 180,
-                colorDark: "#5d4037"
-            });
+            
+            new QRCode(qrDiv, { text: result.data.url, width: 180, height: 180, colorDark: "#5d4037" });
             qrStatus.innerText = "✅ Ready to Scan!";
 
             savedPhotos.unshift(lastCaptureData);
             if (savedPhotos.length > 20) savedPhotos.pop();
             updateGallery();
-
         } catch (error) {
-            qrStatus.innerText = "❌ Upload Failed (Check WiFi)";
+            qrStatus.innerText = "❌ Upload Failed";
         }
     });
 
-    /* --- REPLACING THE RESET LOGIC TO RESTART CAMERA --- */
-
+    // ✅ FIXED GLOBAL RESET FUNCTION
     async function reset() {
+        console.log("Resetting booth...");
         previewImg.style.display = 'none';
         video.style.display = 'block';
         document.getElementById('main-controls').style.display = 'flex';
@@ -292,9 +253,8 @@
         qrContainer.style.display = 'none';
         snapBtn.disabled = false;
 
-        // MANDATORY iOS FIX: Check if camera stream was killed and restart it
+        // Force camera restart for iOS after print dialog
         if (!currentStream || !currentStream.active) {
-            console.log("Restarting camera for iOS...");
             await initCamera();
         }
     }
@@ -304,15 +264,10 @@
         savedPhotos.forEach(src => {
             const img = document.createElement('img');
             img.src = src;
-            img.onclick = () => window.open(src, '_blank');
             galleryContainer.appendChild(img);
         });
     }
 
-    // Context Menu Disable
-    document.addEventListener("contextmenu", e => e.preventDefault());
-
-    // Idle Logic
     function resetIdleTimer() {
         clearTimeout(idleTimer);
         idleTimer = setTimeout(() => {
@@ -322,8 +277,7 @@
             welcomeScreen.style.display = 'block';
         }, IDLE_TIMEOUT);
     }
-    ['click', 'touchstart', 'mousemove'].forEach(evt => document.addEventListener(evt, resetIdleTimer));
-
+    ['click', 'touchstart'].forEach(evt => document.addEventListener(evt, resetIdleTimer));
 </script>
 </body>
 </html>
