@@ -147,6 +147,11 @@
     startBtn.addEventListener('click', () => {
         welcomeScreen.style.display = 'none';
         boothUI.style.display = 'block';
+    
+        // Ensure controls are visible just in case
+        document.getElementById('main-controls').style.display = 'flex';
+        document.getElementById('review-controls').style.display = 'none';
+    
         initCamera();
         resetIdleTimer();
     });
@@ -270,11 +275,20 @@
 
     function resetIdleTimer() {
         clearTimeout(idleTimer);
-        idleTimer = setTimeout(() => {
-            if (currentStream) currentStream.getTracks().forEach(t => t.stop());
+        idleTimer = setTimeout(async () => {
+            // 1. Stop the camera to save battery/CPU
+            if (currentStream) {
+                currentStream.getTracks().forEach(t => t.stop());
+            }
+
+            // 2. IMPORTANT: Reset the UI state so buttons come back
+            await reset(); 
+
+            // 3. Switch screens
             boothUI.style.display = 'none';
-            qrContainer.style.display = 'none';
             welcomeScreen.style.display = 'block';
+        
+            console.log("Booth went idle and UI was reset.");
         }, IDLE_TIMEOUT);
     }
     ['click', 'touchstart'].forEach(evt => document.addEventListener(evt, resetIdleTimer));
