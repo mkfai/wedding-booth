@@ -244,17 +244,21 @@
                 method: "POST",
                 body: formData
             });
+            // --- UPDATE THIS SPECIFIC BLOCK IN YOUR saveBtn LISTENER ---
             const result = await response.json();
-            // 🛠️ THE ANDROID FIX: 
-            // 1. Use 'result.data.image.url' (the absolute rawest link)
-            // 2. Add '?t=' + Date.now() to bypass Chrome's "squared" viewport cache
-            const directLink = result.data.image.url + "?t=" + Date.now();
-    
+
+            // 1. Use the 'image.url' which is the rawest file link ImgBB offers
+            // 2. We use a more aggressive cache buster to force Android to rethink the resolution
+            const absoluteRawLink = result.data.image.url + "?view=" + Date.now();
+
+            // 3. Clear previous QR and generate the new one
+            qrDiv.innerHTML = "";
             new QRCode(qrDiv, { 
-                text: directLink, 
-                width: 180, 
-                height: 180, 
-                colorDark: "#5d4037" 
+                text: absoluteRawLink, 
+                width: 200, // Slightly larger for easier scanning
+                height: 200, 
+                colorDark: "#5d4037",
+                correctLevel : QRCode.CorrectLevel.H // High error correction for better scanning
             });
 
             qrStatus.innerText = "✅ Ready to Scan!";
