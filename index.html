@@ -245,8 +245,18 @@
                 body: formData
             });
             const result = await response.json();
-            
-            new QRCode(qrDiv, { text: result.data.display_url, width: 180, height: 180, colorDark: "#5d4037" });
+            // 🛠️ THE ANDROID FIX: 
+            // 1. Use 'result.data.image.url' (the absolute rawest link)
+            // 2. Add '?t=' + Date.now() to bypass Chrome's "squared" viewport cache
+            const directLink = result.data.image.url + "?t=" + Date.now();
+    
+            new QRCode(qrDiv, { 
+                text: directLink, 
+                width: 180, 
+                height: 180, 
+                colorDark: "#5d4037" 
+            });
+
             qrStatus.innerText = "✅ Ready to Scan!";
 
             savedPhotos.unshift(lastCaptureData);
