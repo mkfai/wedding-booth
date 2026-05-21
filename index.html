@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Dorothy & Kenneth's Photo Booth</title>
+    <!-- QR Code Library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     
     <style>
@@ -77,7 +78,7 @@
         <div id="qr-container">
             <div id="qr-status">Generating QR...</div>
             <div id="qrcode"></div>
-            <p>Scan to download! ☁️</p>
+            <p>Scan to download from Google Drive! ☁️</p>
             <button onclick="reset()" style="background:#5d4037; padding: 8px 15px; font-size: 0.9rem;">Done / Next Guest</button>
         </div>
 
@@ -101,7 +102,9 @@
 </div>
 
 <script>
-    const IMGBB_API_KEY = "836c6b9552bdcd27a11b3c86a73ee93e";
+    // ⚠️ PASTE YOUR GOOGLE WEB APP URL HERE
+    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwaSd3f4I3G7IvXeXTMGamoyEFEvt86WCXTAnIrmWkTjqRMUImgCrjo20V8uitzcmZ5/exec";
+    
     const video = document.getElementById('video');
     const canvas = document.getElementById('canvas');
     const previewImg = document.getElementById('preview-img');
@@ -126,7 +129,6 @@
     let idleTimer;
     const IDLE_TIMEOUT = 60000;
 
-    // --- 1. THE CAMERA ENGINE ---
     async function initCamera() {
         if (currentStream) currentStream.getTracks().forEach(t => t.stop());
         const constraints = { 
@@ -139,8 +141,6 @@
         } catch (e) { console.error("Camera error:", e); }
     }
 
-    // --- 2. THE UI RESET ENGINE ---
-    // This ONLY fixes the buttons and hides images, but does NOT touch the camera.
     function resetUI() {
         previewImg.style.display = 'none';
         video.style.display = 'block';
@@ -150,7 +150,6 @@
         snapBtn.disabled = false;
     }
 
-    // This is called by "Retake" or "Done" - it resets UI AND ensures camera is on.
     async function reset() {
         resetUI();
         if (!currentStream || !currentStream.active) {
@@ -158,12 +157,11 @@
         }
     }
 
-    // --- 3. EVENT LISTENERS ---
     startBtn.addEventListener('click', async () => {
         welcomeScreen.style.display = 'none';
         boothUI.style.display = 'block';
-        resetUI();    // Ensure "Take Photo" button is visible
-        await initCamera(); // Start the Sony A7C2
+        resetUI();
+        await initCamera();
         resetIdleTimer();
     });
 
@@ -187,7 +185,6 @@
                 clearInterval(timer);
                 countdownEl.style.display = 'none';
                 
-                // SONY FLASH SYNC FIX
                 flashEl.style.transition = 'none';
                 flashEl.style.opacity = '1';
                 setTimeout(() => {
@@ -223,10 +220,12 @@
         document.getElementById('review-controls').style.display = 'none';
         qrContainer.style.display = 'flex';
         qrDiv.innerHTML = "";
-        qrStatus.innerText = "☁️ Printing & Generating QR...";
+        qrStatus.innerText = "☁️ Printing & Processing Google Drive QR...";
 
-        window.print(); // Trigger print immediately for iOS/PC stability
+        // 1. Instant Print
+        window.print();
 
+        // 2. Local Save (PC only)
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
         if (!isIOS) {
             const link = document.createElement('a');
@@ -235,35 +234,36 @@
             link.click();
         }
 
+        // 3. Google Drive Upload Engine
         try {
             const base64Data = lastCaptureData.split(',')[1];
-            const formData = new FormData();
-            formData.append("image", base64Data);
-
-            const response = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
+            
+            // Send payload to Google Web App
+            const response = await fetch(GOOGLE_SCRIPT_URL, {
                 method: "POST",
-                body: formData
+                body: JSON.stringify({ image: base64Data })
             });
             const result = await response.json();
-            // 🛠️ THE ANDROID FIX: 
-            // 1. Use 'result.data.image.url' (the absolute rawest link)
-            // 2. Add '?t=' + Date.now() to bypass Chrome's "squared" viewport cache
-            const directLink = result.data.image.url + "?t=" + Date.now();
-    
-            new QRCode(qrDiv, { 
-                text: directLink, 
-                width: 180, 
-                height: 180, 
-                colorDark: "#5d4037" 
-            });
-
-            qrStatus.innerText = "✅ Ready to Scan!";
+            
+            if(result.status === "success") {
+                // Generate QR Code from direct Drive URL
+                new QRCode(qrDiv, { 
+                    text: result.url, 
+                    width: 200, 
+                    height: 200, 
+                    colorDark: "#5d4037" 
+                });
+                qrStatus.innerText = "✅ Ready to Scan!";
+            } else {
+                throw new Error(result.message);
+            }
 
             savedPhotos.unshift(lastCaptureData);
             if (savedPhotos.length > 20) savedPhotos.pop();
             updateGallery();
         } catch (error) {
-            qrStatus.innerText = "❌ Upload Failed";
+            qrStatus.innerText = "❌ Upload Failed (Check Settings)";
+            console.error("Drive Error:", error);
         }
     });
 
@@ -276,20 +276,14 @@
         });
     }
 
-    // --- 4. THE IDLE ENGINE ---
     function resetIdleTimer() {
         clearTimeout(idleTimer);
         idleTimer = setTimeout(() => {
-            // Kill the camera to save power
             if (currentStream) {
                 currentStream.getTracks().forEach(t => t.stop());
                 currentStream = null;
             }
-
-            // Reset the UI behind the scenes so "Take Photo" is ready later
             resetUI(); 
-
-            // Return to start
             boothUI.style.display = 'none';
             welcomeScreen.style.display = 'block';
         }, IDLE_TIMEOUT);
