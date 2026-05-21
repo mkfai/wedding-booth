@@ -238,11 +238,17 @@
         try {
             const base64Data = lastCaptureData.split(',')[1];
             
-            // Send payload to Google Web App
+            // We use standard fetch but handle the redirect naturally
             const response = await fetch(GOOGLE_SCRIPT_URL, {
                 method: "POST",
-                body: JSON.stringify({ image: base64Data })
+                body: JSON.stringify({ image: base64Data }),
+                headers: {
+                    // Sending as text/plain prevents CORS preflight checks 
+                    // which often break Google App Scripts
+                    "Content-Type": "text/plain;charset=utf-8" 
+                }
             });
+            
             const result = await response.json();
             
             if(result.status === "success") {
