@@ -145,7 +145,6 @@
         previewImg.style.display = 'none';
         video.style.display = 'block';
         document.getElementById('main-controls').style.display = 'flex';
-        document.getElementById('review-controls').style.none = 'none';
         document.getElementById('review-controls').style.display = 'none';
         qrContainer.style.display = 'none';
         snapBtn.disabled = false;
@@ -217,7 +216,33 @@
         document.getElementById('review-controls').style.display = 'flex';
     }
 
-    saveBtn.addEventListener('click', async () => {
+    // 🛠️ THE JSONP RESPONSE HANDLER:
+    // This is the global script function that catches the Google Drive URL safely.
+    window.handleGoogleResponse = function(result) {
+        // Clean up the temporary injection tag
+        const oldScript = document.getElementById('jsonp-upload-script');
+        if (oldScript) oldScript.remove();
+
+        if (result && result.status === "success") {
+            qrDiv.innerHTML = "";
+            new QRCode(qrDiv, { 
+                text: result.url, 
+                width: 200, 
+                height: 200, 
+                colorDark: "#5d4037" 
+            });
+            qrStatus.innerText = "✅ Scan to Download!";
+        } else {
+            qrStatus.innerText = "❌ Upload Failed (Script Error)";
+            console.error(result ? result.message : "No result payload");
+        }
+
+        savedPhotos.unshift(lastCaptureData);
+        if (savedPhotos.length > 20) savedPhotos.pop();
+        updateGallery();
+    };
+
+    saveBtn.addEventListener('click', () => {
         document.getElementById('review-controls').style.display = 'none';
         qrContainer.style.display = 'flex';
         qrDiv.innerHTML = "";
@@ -235,55 +260,35 @@
             link.click();
         }
 
-        // 3. Robust Google Drive Pipeline
-        const base64Data = lastCaptureData.split(',')[1];
-        
+        // 3. 🛠️ JSONP Script Injection Engine:
+        // Instead of using 'fetch', we dynamically mount the request as a script source tag.
+        // This acts exactly like loading a library script and bypasses CORS 302 blocking completely.
         try {
-            // We use standard fetch request
-            const response = await fetch(GOOGLE_SCRIPT_URL, {
-                method: "POST",
-                mode: "cors", // Ask browser to request access to read response
-                body: JSON.stringify({ image: base64Data }),
-                headers: { "Content-Type": "text/plain;charset=utf-8" }
-            });
+            const base64Data = lastCaptureData.split(',')[1];
             
-            const result = await response.json();
+            // Build the dynamic script URL passing the base64 string and our target callback
+            const script = document.createElement('script');
+            script.id = 'jsonp-upload-script';
             
-            if (result.status === "success") {
-                showQR(result.url);
-            } else {
-                throw new Error(result.message);
-            }
+            // We append parameters natively. Using a hidden form payload approach via GET.
+            // Google Scripts comfortably process base64 strings through parameter payloads.
+            script.src = `${GOOGLE_SCRIPT_URL}?callback=handleGoogleResponse&image=${encodeURIComponent(base64Data)}`;
+            
+            // Append to head to fire the execution
+            document.head.appendChild(script);
+
+            // Safety timeout if the cloud response completely hangs up
+            setTimeout(() => {
+                if (qrStatus.innerText === "☁️ Printing & Syncing to Google Drive...") {
+                    qrStatus.innerText = "⚠️ Network Delay... Still attempting sync.";
+                }
+            }, 8000);
+
         } catch (error) {
-            // 💡 FAIL-SAFE: If the browser blocks the response headers via CORS,
-            // but the file actually arrived in Drive safely, we bypass the error
-            // and build the direct folder view link so guests aren't stuck.
-            console.log("Response blocked by CORS, executing fail-safe display...");
-            
-            // Extract folder view link or fall back gracefully
-            qrStatus.innerText = "✅ Saved to Google Drive!";
-            qrDiv.innerHTML = "<div style='padding:15px; background:#f4f4f4; border-radius:10px; font-size:0.95rem; color:#5d4037;'>✨ Photo Uploaded Successfully! ✨<br><br><span style='font-size:0.85rem; color:#888;'>Scan your group's master folder QR on the desk or check with the coordinator to download.</span></div>";
-            
-            savedPhotos.unshift(lastCaptureData);
-            if (savedPhotos.length > 20) savedPhotos.pop();
-            updateGallery();
+            qrStatus.innerText = "❌ Script Injection Error";
+            console.error(error);
         }
     });
-
-    function showQR(url) {
-        qrDiv.innerHTML = "";
-        new QRCode(qrDiv, { 
-            text: url, 
-            width: 200, 
-            height: 200, 
-            colorDark: "#5d4037" 
-        });
-        qrStatus.innerText = "✅ Scan to Download!";
-        
-        savedPhotos.unshift(lastCaptureData);
-        if (savedPhotos.length > 20) savedPhotos.pop();
-        updateGallery();
-    }
 
     function updateGallery() {
         galleryContainer.innerHTML = '';
