@@ -41,6 +41,8 @@
         .gallery-items { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px; max-height: 300px; overflow-y: auto; padding: 15px; }
         .gallery-items img { width: 100%; height: auto; border: 3px solid white; border-radius: 5px; }
 
+        #upload-bridge { display: none; }
+
         @media print {
             @page { size: landscape; margin: 0; }
             body { background: white !important; margin: 0 !important; padding: 0 !important; }
@@ -99,6 +101,12 @@
 
     <canvas id="canvas" style="display:none;"></canvas>
     <img src="frame.png" id="frame-source" style="display:none;">
+    
+    <!-- Hidden form transport elements to handle cross-origin files -->
+    <form id="upload-form" method="POST" action="" target="upload-bridge" style="display:none;">
+        <input type="hidden" name="image" id="form-image-input">
+    </form>
+    <iframe id="upload-bridge" name="upload-bridge"></iframe>
 </div>
 
 <script>
@@ -121,6 +129,8 @@
     const qrContainer = document.getElementById('qr-container');
     const qrDiv = document.getElementById('qrcode');
     const qrStatus = document.getElementById('qr-status');
+    const uploadForm = document.getElementById('upload-form');
+    const formImageInput = document.getElementById('form-image-input');
 
     let currentStream;
     let useFrontCamera = true;
@@ -216,13 +226,10 @@
         document.getElementById('review-controls').style.display = 'flex';
     }
 
-    // 🛠️ THE JSONP RESPONSE HANDLER:
-    // This is the global script function that catches the Google Drive URL safely.
-    window.handleGoogleResponse = function(result) {
-        // Clean up the temporary injection tag
-        const oldScript = document.getElementById('jsonp-upload-script');
-        if (oldScript) oldScript.remove();
-
+    // 🛠️ THE TARGET WINDOW MESSAGING LISTENER:
+    // This safely catches the secure window event emitted directly out of Google's hidden iframe transport.
+    window.addEventListener('message', function(event) {
+        const result = event.data;
         if (result && result.status === "success") {
             qrDiv.innerHTML = "";
             new QRCode(qrDiv, { 
@@ -232,15 +239,15 @@
                 colorDark: "#5d4037" 
             });
             qrStatus.innerText = "✅ Scan to Download!";
-        } else {
+        } else if (result && result.status === "error") {
             qrStatus.innerText = "❌ Upload Failed (Script Error)";
-            console.error(result ? result.message : "No result payload");
+            console.error(result.message);
         }
-
+        
         savedPhotos.unshift(lastCaptureData);
         if (savedPhotos.length > 20) savedPhotos.pop();
         updateGallery();
-    };
+    });
 
     saveBtn.addEventListener('click', () => {
         document.getElementById('review-controls').style.display = 'none';
@@ -260,32 +267,23 @@
             link.click();
         }
 
-        // 3. 🛠️ JSONP Script Injection Engine:
-        // Instead of using 'fetch', we dynamically mount the request as a script source tag.
-        // This acts exactly like loading a library script and bypasses CORS 302 blocking completely.
+        // 3. 🛠️ Submitting via a hidden Iframe target post structure
+        // This accepts large 4K image payloads natively without size limits.
         try {
             const base64Data = lastCaptureData.split(',')[1];
             
-            // Build the dynamic script URL passing the base64 string and our target callback
-            const script = document.createElement('script');
-            script.id = 'jsonp-upload-script';
+            // Build wrapper format matching standard POST structures
+            var payload = JSON.stringify({ image: base64Data });
             
-            // We append parameters natively. Using a hidden form payload approach via GET.
-            // Google Scripts comfortably process base64 strings through parameter payloads.
-            script.src = `${GOOGLE_SCRIPT_URL}?callback=handleGoogleResponse&image=${encodeURIComponent(base64Data)}`;
+            // Pack hidden form parameters
+            uploadForm.action = GOOGLE_SCRIPT_URL;
+            formImageInput.value = payload;
             
-            // Append to head to fire the execution
-            document.head.appendChild(script);
-
-            // Safety timeout if the cloud response completely hangs up
-            setTimeout(() => {
-                if (qrStatus.innerText === "☁️ Printing & Syncing to Google Drive...") {
-                    qrStatus.innerText = "⚠️ Network Delay... Still attempting sync.";
-                }
-            }, 8000);
+            // Submit form target elements into invisible iframe pipeline
+            uploadForm.submit();
 
         } catch (error) {
-            qrStatus.innerText = "❌ Script Injection Error";
+            qrStatus.innerText = "❌ Upload Transport Error";
             console.error(error);
         }
     });
